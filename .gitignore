@@ -1,0 +1,23 @@
+# local / generated
+__pycache__/
+*.pyc
+.pytest_cache/
+*.lock
+.claude/
+.backups/
+.mcp.json
+CLAUDE.md
+tools/
+GpMessages/
+ImportLog/
+Index/
+# ArcGIS Pro project files (machine specific)
+noisebox_for_Arc_GIS_pro.aprx
+noisebox_for_Arc_GIS_pro.atbx
+noisebox_for_Arc_GIS_pro.gdb/
+# big downloaded data (recreate with setup/make_israel_dem.py)
+data/dem/
+data/dem_raw/
+# sample DEM clip aux files
+sample/*.ovr
+*.pyt.xml
