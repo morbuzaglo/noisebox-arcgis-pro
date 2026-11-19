@@ -73,7 +73,12 @@ def main():
     if os.path.isfile(PKG):
         z = zipfile.ZipFile(PKG)
         n = z.namelist()
-        report("package: Config.daml at the root, assembly under Install/", "Config.daml" in n and "Install/NoiseBoxAddin.dll" in n, str(n))
+        report("package: Config.daml at the root, assembly under Install/", "Config.daml" in n and "Install/NoiseBoxAddin.dll" in n, str(n[:4]))
+        refs = set(re.findall(r'(?:smallImage|largeImage|image)="([^"]+)"', open(DAML, encoding="utf-8").read()))
+        miss_src = [r for r in refs if not os.path.exists(os.path.join(os.path.dirname(DAML), r))]
+        miss_pkg = [r for r in refs if r not in n]
+        report("icons: every image in Config.daml exists on disk (%d)" % len(refs), refs and not miss_src, str(miss_src[:5]))
+        report("icons: every image in Config.daml is inside the package", refs and not miss_pkg, str(miss_pkg[:5]))
     else:
         report("package exists (run setup\\build_addin.ps1)", False)
     print("\nALL PASS" if all(RES) else "\nSOME FAILED")

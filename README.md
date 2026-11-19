@@ -21,6 +21,10 @@ warnings and notes (`noisebox/issues.py`), run through the same MATLAB core, and
 | `addin/NoiseBoxAddin` (ribbon tab, dockable pane, map tools; C#, ArcGIS Pro SDK) | **compiled and packaged; static checks pass; never loaded or clicked in Pro** |
 | `dist/NoiseBox.esriAddinX` | the built add-in; install by double-click on any computer with ArcGIS Pro 3.5 |
 
+Ribbon icons: `addin/NoiseBoxAddin/Images/<Name>16.png` and `<Name>32.png` (one pair per button, named after the id in
+`Config.daml` without `NoiseBox_`). The generated placeholders come from `docs/make_icons.py`; overwrite any PNG with your
+own artwork of the same name and rebuild.
+
 Rebuild the add-in with any .NET SDK: `.\setup\build_addin.ps1` (see the manual, section 3).
 Tests: `tests/run_all.py <outdir>` runs everything (the MATLAB tests take about 30 to 40 minutes);
 `tests/test_scenario.py` (validation, no MATLAB), `tests/test_cli.py`, `tests/check_addin_package.py`,
