@@ -82,6 +82,32 @@ def main():
                             threshold=3, out_gdb=gdb, run_name="cmp", add_map=False)
     print(r.getMessages().encode("ascii", "replace").decode()[-300:])
 
+    print("\n--- RunScenario (the tool the add-in calls) ---")
+    from scn_common import base_scenario, barrier
+    from noisebox import scenario as SC
+    sc = base_scenario(gdb, run="gp_scn")
+    sc["structures"] = [barrier(h=4.0)]
+    spath = SC.save(sc, os.path.join(outdir, "gp_scn.nbscenario.json"))
+    r = tb.RunScenario(scenario=spath)
+    print(r.getMessages().encode("ascii", "replace").decode()[-400:])
+    for nm_ in ("gp_scn_LAeq", "gp_scn_Summary", "gp_scn_Snapshot"):
+        e = arcpy.Exists(os.path.join(gdb, nm_))
+        print("  exists %-16s %s" % (nm_, e))
+        ok &= e
+
+    print("\n--- RunScenario with an incomplete scenario: the message names every problem ---")
+    bad = base_scenario(gdb, run="gp_bad")
+    bad["source"]["height_m"] = None
+    bad["source"]["spectrum"]["lw"][1] = None
+    bpath = SC.save(bad, os.path.join(outdir, "gp_bad.nbscenario.json"))
+    try:
+        tb.RunScenario(scenario=bpath)
+        ok = False
+    except arcpy.ExecuteError:
+        msg = arcpy.GetMessages(2)
+        print(msg.encode("ascii", "replace").decode()[:500])
+        ok &= "SRC-014" in msg and "SPC-002" in msg
+
     print("\n--- Error path: bad Lw prefix ---")
     try:
         tb.NoiseMap(sources=os.path.join(GDB, "sources"), h_field="h_src", lw_prefix="Nope_", G=0.5, hr=1.5, T=15,

@@ -7,6 +7,25 @@ separate Python 3.10 environment and talks to the toolbox through a temp folder 
 
 > No ISO certification or conformance is claimed. Edit a `.m` file and the next run uses the new code.
 
+## Scenarios and the ribbon add-in (new)
+
+A **scenario** (one `.nbscenario.json` file) describes a source (location, height, Lw spectrum, directivity), terrain, a
+receiver area and optionally buildings, noise barriers and a source enclosure. It is validated by 256 numbered errors,
+warnings and notes (`noisebox/issues.py`), run through the same MATLAB core, and every run keeps a snapshot.
+**Read `docs/NoiseBox_Manual.pdf`** for installation on another computer and a worked example.
+
+| Part | Status |
+|---|---|
+| `noisebox/scenario*.py`, `noisebox_cli.py`, tool **5. Add-in > Run Scenario** in `NoiseBox.pyt` | built and tested |
+| `matlab/core/nb_enclosure_surfaces.m` (new; `nb_enclosure.m` unchanged) and glue extensions | built and tested |
+| `addin/NoiseBoxAddin` (ribbon tab, dockable pane, map tools; C#, ArcGIS Pro SDK) | **compiled and packaged; static checks pass; never loaded or clicked in Pro** |
+| `dist/NoiseBox.esriAddinX` | the built add-in; install by double-click on any computer with ArcGIS Pro 3.5 |
+
+Rebuild the add-in with any .NET SDK: `.\setup\build_addin.ps1` (see the manual, section 3).
+Tests: `tests/run_all.py <outdir>` runs everything (the MATLAB tests take about 30 to 40 minutes);
+`tests/test_scenario.py` (validation, no MATLAB), `tests/test_cli.py`, `tests/check_addin_package.py`,
+`tests/check_xaml_bindings.py`, `tests/test_scenario_engine.py` (needs MATLAB).
+
 ## The workflow (made for decisions)
 
 | Step | Tool | What you get |

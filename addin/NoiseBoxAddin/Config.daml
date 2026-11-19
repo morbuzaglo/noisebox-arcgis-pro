@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- NoiseBox ribbon tab: six groups, split buttons where several ways exist for one action, one dockable pane.
+     Not yet loaded in ArcGIS Pro (see NoiseBoxAddin.csproj). -->
+<ArcGIS defaultAssembly="NoiseBoxAddin.dll"
+        defaultNamespace="NoiseBoxAddin"
+        xmlns="http://schemas.esri.com/DADF/Registry"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
+
+  <AddInInfo id="{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}" version="1.0" desktopVersion="3.5.0">
+    <Name>NoiseBox</Name>
+    <Description>Outdoor noise mapping (ISO 9613-2) with a MATLAB core: scenarios, sources, structures, enclosures, receiver grids.</Description>
+    <Date>2026-11-19</Date>
+    <Subject>Analysis</Subject>
+  </AddInInfo>
+
+  <modules>
+    <insertModule id="NoiseBox_Module" className="NoiseBoxModule" autoLoad="false" caption="NoiseBox">
+
+      <tabs>
+        <tab id="NoiseBox_Tab" caption="NoiseBox" keytip="NB">
+          <group refID="NoiseBox_Group_Scenario" />
+          <group refID="NoiseBox_Group_Source" />
+          <group refID="NoiseBox_Group_Terrain" />
+          <group refID="NoiseBox_Group_Structures" />
+          <group refID="NoiseBox_Group_Propagation" />
+          <group refID="NoiseBox_Group_Analysis" />
+        </tab>
+      </tabs>
+
+      <groups>
+        <group id="NoiseBox_Group_Scenario" keytip="N01" caption="Scenario" appearsOnAddInTab="false">
+          <button refID="NoiseBox_Scenario_New" size="large" />
+          <button refID="NoiseBox_Scenario_Open" size="large" />
+          <button refID="NoiseBox_Scenario_Save" size="large" />
+          <button refID="NoiseBox_Scenario_Duplicate" size="large" />
+        </group>
+        <group id="NoiseBox_Group_Source" keytip="N02" caption="Source" appearsOnAddInTab="false">
+          <splitButton refID="NoiseBox_SetLocation" size="large" />
+          <button refID="NoiseBox_Spectrum" size="large" />
+          <button refID="NoiseBox_Directivity" size="large" />
+        </group>
+        <group id="NoiseBox_Group_Terrain" keytip="N03" caption="Terrain and Area" appearsOnAddInTab="false">
+          <splitButton refID="NoiseBox_SelectDtm" size="large" />
+          <splitButton refID="NoiseBox_SetArea" size="large" />
+          <button refID="NoiseBox_ReceiverGrid" size="large" />
+        </group>
+        <group id="NoiseBox_Group_Structures" keytip="N04" caption="Structures" appearsOnAddInTab="false">
+          <splitButton refID="NoiseBox_AddBuilding" size="large" />
+          <splitButton refID="NoiseBox_AddBarrier" size="large" />
+          <splitButton refID="NoiseBox_AddEnclosure" size="large" />
+        </group>
+        <group id="NoiseBox_Group_Propagation" keytip="N05" caption="Propagation" appearsOnAddInTab="false">
+          <button refID="NoiseBox_Ground" size="large" />
+          <button refID="NoiseBox_Atmosphere" size="large" />
+          <button refID="NoiseBox_TerrainScreening" size="large" />
+          <button refID="NoiseBox_Meteorology" size="large" />
+        </group>
+        <group id="NoiseBox_Group_Analysis" keytip="N06" caption="Analysis" appearsOnAddInTab="false">
+          <button refID="NoiseBox_Preview" size="large" />
+          <button refID="NoiseBox_Run" size="large" />
+          <button refID="NoiseBox_Results" size="large" />
+        </group>
+      </groups>
+
+      <controls>
+        <!-- Scenario -->
+        <button id="NoiseBox_Scenario_New" keytip="N07" caption="New" className="Buttons.NewScenario" loadOnClick="true">
+          <tooltip heading="New scenario">Start an empty scenario. Constants have defaults; the source, area and outputs are yours to set.</tooltip>
+        </button>
+        <button id="NoiseBox_Scenario_Open" keytip="N08" caption="Open" className="Buttons.OpenScenario" loadOnClick="true">
+          <tooltip heading="Open scenario">Open a saved scenario file (.nbscenario.json).</tooltip>
+        </button>
+        <button id="NoiseBox_Scenario_Save" keytip="N09" caption="Save" className="Buttons.SaveScenario" loadOnClick="true">
+          <tooltip heading="Save scenario">Save the scenario file. The GIS data it refers to is never changed.</tooltip>
+        </button>
+        <button id="NoiseBox_Scenario_Duplicate" keytip="N10" caption="Duplicate" className="Buttons.DuplicateScenario" loadOnClick="true">
+          <tooltip heading="Duplicate scenario">Copy the scenario, e.g. to test a mitigation next to the baseline.</tooltip>
+        </button>
+
+        <!-- Source: Set Location with three equivalent ways -->
+        <button id="NoiseBox_SetLocation_FromLayer" keytip="N11" caption="From Layer" className="Buttons.SourceFromLayer" loadOnClick="true">
+          <tooltip heading="From Layer">Use a point from a layer: the selected feature, a feature picked on the map, or one chosen by name or ID.</tooltip>
+        </button>
+        <button id="NoiseBox_SetLocation_Coordinates" keytip="N12" caption="Enter Coordinates" className="Buttons.SourceFromCoordinates" loadOnClick="true">
+          <tooltip heading="Enter Coordinates">Type or paste a coordinate pair in a coordinate system you choose.</tooltip>
+        </button>
+        <button id="NoiseBox_SetLocation_PlaceOnMap" keytip="N13" caption="Place on Map" className="Buttons.SourcePlaceOnMap" loadOnClick="true">
+          <tooltip heading="Place on Map">Click the map to place the source. Esc cancels.</tooltip>
+        </button>
+        <tool id="NoiseBox_PlaceSourceTool" keytip="N14" caption="Place Source" className="Tools.PlaceSourceTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_MoveSourceTool" keytip="N15" caption="Move Source" className="Tools.MoveSourceTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_PickSourceTool" keytip="N16" caption="Pick Source Feature" className="Tools.PickSourceTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_HeadingTool" keytip="N17" caption="Rotate Heading" className="Tools.HeadingTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <button id="NoiseBox_Spectrum" keytip="N18" caption="Source Spectrum" className="Buttons.OpenSpectrum" loadOnClick="true">
+          <tooltip heading="Source spectrum">Octave-band sound power Lw (dB re 1 pW): type, paste, import CSV, or load a named profile.</tooltip>
+        </button>
+        <button id="NoiseBox_Directivity" keytip="N19" caption="Directivity" className="Buttons.OpenDirectivity" loadOnClick="true">
+          <tooltip heading="Directivity">Omnidirectional, or a constant correction Dc per band (the engine has no angular table yet).</tooltip>
+        </button>
+
+        <!-- Terrain and Area -->
+        <button id="NoiseBox_Dtm_FromProject" keytip="N20" caption="From Project Rasters" className="Buttons.DtmFromProject" loadOnClick="true" />
+        <button id="NoiseBox_Dtm_Browse" keytip="N21" caption="Browse..." className="Buttons.DtmBrowse" loadOnClick="true" />
+        <button id="NoiseBox_Dtm_Coverage" keytip="N22" caption="Show Coverage" className="Buttons.DtmCoverage" loadOnClick="true">
+          <tooltip heading="Show Coverage">Draw the DTM footprint and the gaps along source-to-receiver paths.</tooltip>
+        </button>
+        <button id="NoiseBox_Dtm_None" keytip="N23" caption="Flat Ground (no DTM)" className="Buttons.DtmNone" loadOnClick="true" />
+        <button id="NoiseBox_Area_Polygons" keytip="N24" caption="Existing Polygons" className="Buttons.AreaFromPolygons" loadOnClick="true" />
+        <button id="NoiseBox_Area_DrawPolygon" keytip="N25" caption="Draw Polygon" className="Buttons.AreaDrawPolygon" loadOnClick="true" />
+        <button id="NoiseBox_Area_DrawRectangle" keytip="N26" caption="Draw Rectangle" className="Buttons.AreaDrawRectangle" loadOnClick="true" />
+        <button id="NoiseBox_Area_Radius" keytip="N27" caption="Radius Around Source" className="Buttons.AreaRadius" loadOnClick="true" />
+        <button id="NoiseBox_Area_MapExtent" keytip="N28" caption="Capture Map Extent" className="Buttons.AreaMapExtent" loadOnClick="true" />
+        <tool id="NoiseBox_AreaPolygonTool" keytip="N29" caption="Draw Analysis Area" className="Tools.AreaPolygonTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_AreaRectangleTool" keytip="N30" caption="Draw Analysis Rectangle" className="Tools.AreaRectangleTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <button id="NoiseBox_ReceiverGrid" keytip="N31" caption="Receiver Grid" className="Buttons.OpenReceiverGrid" loadOnClick="true">
+          <tooltip heading="Receiver grid">Output cell size (match the DTM or custom) and receiver height above local ground.</tooltip>
+        </button>
+
+        <!-- Structures -->
+        <button id="NoiseBox_Building_FromLayer" keytip="N32" caption="From Layer" className="Buttons.BuildingFromLayer" loadOnClick="true" />
+        <button id="NoiseBox_Building_Draw" keytip="N33" caption="Draw Footprint" className="Buttons.BuildingDraw" loadOnClick="true" />
+        <tool id="NoiseBox_BuildingTool" keytip="N34" caption="Draw Building Footprint" className="Tools.BuildingTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <button id="NoiseBox_Barrier_FromLayer" keytip="N35" caption="From Layer" className="Buttons.BarrierFromLayer" loadOnClick="true" />
+        <button id="NoiseBox_Barrier_Sketch" keytip="N36" caption="Sketch on Map" className="Buttons.BarrierSketch" loadOnClick="true" />
+        <button id="NoiseBox_Barrier_Precise" keytip="N37" caption="Precise Placement" className="Buttons.BarrierPrecise" loadOnClick="true">
+          <tooltip heading="Precise placement">Start point, length, azimuth and height; the barrier updates as you edit the numbers.</tooltip>
+        </button>
+        <tool id="NoiseBox_BarrierTool" keytip="N38" caption="Sketch Noise Barrier" className="Tools.BarrierTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_BarrierStartTool" keytip="N39" caption="Place Barrier Start" className="Tools.BarrierStartTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <button id="NoiseBox_Enclosure_Rectangle" keytip="N40" caption="Quick Rectangle" className="Buttons.EnclosureRectangle" loadOnClick="true" />
+        <button id="NoiseBox_Enclosure_Draw" keytip="N41" caption="Draw Footprint" className="Buttons.EnclosureDraw" loadOnClick="true" />
+        <tool id="NoiseBox_EnclosureTool" keytip="N42" caption="Draw Enclosure Footprint" className="Tools.EnclosureTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+        <tool id="NoiseBox_PickStructureTool" keytip="N43" caption="Select Structure" className="Tools.PickStructureTool" loadOnClick="true" categoryRefID="esri_mapping_mapTools" />
+
+        <!-- Propagation -->
+        <button id="NoiseBox_Ground" keytip="N44" caption="Ground" className="Buttons.OpenGround" loadOnClick="true" />
+        <button id="NoiseBox_Atmosphere" keytip="N45" caption="Atmosphere" className="Buttons.OpenAtmosphere" loadOnClick="true" />
+        <button id="NoiseBox_TerrainScreening" keytip="N46" caption="Terrain Screening" className="Buttons.OpenTerrainScreening" loadOnClick="true" />
+        <button id="NoiseBox_Meteorology" keytip="N47" caption="Meteorology" className="Buttons.OpenMeteorology" loadOnClick="true" />
+
+        <!-- Analysis -->
+        <button id="NoiseBox_Preview" keytip="N48" caption="Preview" className="Buttons.Preview" loadOnClick="true">
+          <tooltip heading="Preview">Fast check, no acoustic calculation: shows the source, heading, area, structures in the run, DTM gaps, and every issue.</tooltip>
+        </button>
+        <button id="NoiseBox_Run" keytip="N49" caption="Run" className="Buttons.Run" loadOnClick="true">
+          <tooltip heading="Run">Calculate with the MATLAB core and add the results to a named group in Contents.</tooltip>
+        </button>
+        <button id="NoiseBox_Results" keytip="N50" caption="Results" className="Buttons.OpenResults" loadOnClick="true" />
+      </controls>
+      <splitButtons>
+        <splitButton id="NoiseBox_SetLocation" keytip="N51">
+          <button refID="NoiseBox_SetLocation_FromLayer" />
+          <button refID="NoiseBox_SetLocation_Coordinates" />
+          <button refID="NoiseBox_SetLocation_PlaceOnMap" />
+        </splitButton>
+        <splitButton id="NoiseBox_SelectDtm" keytip="N52">
+          <button refID="NoiseBox_Dtm_FromProject" />
+          <button refID="NoiseBox_Dtm_Browse" />
+          <button refID="NoiseBox_Dtm_Coverage" />
+          <button refID="NoiseBox_Dtm_None" />
+        </splitButton>
+        <splitButton id="NoiseBox_SetArea" keytip="N53">
+          <button refID="NoiseBox_Area_Polygons" />
+          <button refID="NoiseBox_Area_DrawPolygon" />
+          <button refID="NoiseBox_Area_DrawRectangle" />
+          <button refID="NoiseBox_Area_Radius" />
+          <button refID="NoiseBox_Area_MapExtent" />
+        </splitButton>
+        <splitButton id="NoiseBox_AddBuilding" keytip="N54">
+          <button refID="NoiseBox_Building_FromLayer" />
+          <button refID="NoiseBox_Building_Draw" />
+        </splitButton>
+        <splitButton id="NoiseBox_AddBarrier" keytip="N55">
+          <button refID="NoiseBox_Barrier_FromLayer" />
+          <button refID="NoiseBox_Barrier_Sketch" />
+          <button refID="NoiseBox_Barrier_Precise" />
+        </splitButton>
+        <splitButton id="NoiseBox_AddEnclosure" keytip="N56">
+          <button refID="NoiseBox_Enclosure_Rectangle" />
+          <button refID="NoiseBox_Enclosure_Draw" />
+        </splitButton>
+      </splitButtons>
+
+      <dockPanes>
+        <dockPane id="NoiseBox_Pane" caption="NoiseBox" className="UI.NoiseBoxPaneViewModel" dock="group" dockWith="esri_core_projectDockPane">
+          <content className="UI.NoiseBoxPaneView" />
+        </dockPane>
+      </dockPanes>
+    </insertModule>
+  </modules>
+</ArcGIS>

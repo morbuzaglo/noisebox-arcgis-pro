@@ -21,3 +21,11 @@ data/dem_raw/
 # sample DEM clip aux files
 sample/*.ovr
 *.pyt.xml
+
+# add-in build output
+addin/**/bin/
+addin/**/obj/
+.vs/
+*.user
+
+.pyHistory

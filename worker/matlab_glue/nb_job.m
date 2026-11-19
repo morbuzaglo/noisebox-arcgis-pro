@@ -10,6 +10,8 @@ switch job.action
     case 'check',  do_check(job);
     case 'field',  do_field(job);
     case 'points', do_points(job);
+    case 'material', do_material(job);
+    case 'atmosphere', do_atmosphere(job);
     otherwise, error('nb_job:action', 'Unknown action "%s".', job.action);
 end
 end
@@ -20,6 +22,55 @@ G = job.G;
 base.G = struct('Gs', G, 'Gm', G, 'Gr', G);
 base.atm = struct('T_C', job.atm.T_C, 'RH', job.atm.RH, 'p_kPa', job.atm.p_kPa);
 base.mode = job.mode;
+if isfield(job, 'Gadv') && ~isempty(job.Gadv)                  % separate source / middle / receiver ground factors
+    base.G = struct('Gs', job.Gadv.Gs, 'Gm', job.Gadv.Gm, 'Gr', job.Gadv.Gr);
+end
+if isfield(job, 'C0') && ~isempty(job.C0)                      % long-term meteorological correction (core nb_cmet)
+    base.C0 = double(job.C0);
+end
+end
+
+function m = decode_mat(j)
+% Material from JSON -> struct for nb_material('resolve'); null / [] entries are left out.
+m = struct();
+names = {'surface_mass', 'volume_density', 'thickness', 'solid', 'TL', 'openness', 'tl_model'};
+for i = 1:numel(names)
+    n = names{i};
+    if isfield(j, n) && ~isempty(j.(n))
+        v = j.(n);
+        if strcmp(n, 'TL'), v = double(v(:)'); end
+        m.(n) = v;
+    end
+end
+end
+
+function [SRC, enc] = prep_sources(job)
+% Per source: effective Lw (after an enclosure, if any) and directivity correction Dc. The enclosure and
+% mass-law maths are the core's (nb_enclosure_surfaces / nb_enclosure / nb_material); this only decodes.
+NS = numel(job.sources);
+SRC = struct('x', cell(1, NS), 'y', [], 'h', [], 'Lw', [], 'Dc', []);
+enc = cell(1, NS);
+for s = 1:NS
+    S = job.sources(s);
+    SRC(s).x = S.x;  SRC(s).y = S.y;  SRC(s).h = S.h;
+    SRC(s).Lw = double(S.Lw(:)');
+    SRC(s).Dc = zeros(1, 8);
+    if isfield(S, 'Dc') && ~isempty(S.Dc), SRC(s).Dc = double(S.Dc(:)'); end
+    if isfield(S, 'enclosure') && ~isempty(S.enclosure)
+        E = S.enclosure;
+        sf = E.surfaces;
+        if iscell(sf), sf = [sf{:}]; end
+        surf = struct('name', {}, 'area', {}, 'mat', {}, 'alpha', {});
+        for q = 1:numel(sf)
+            surf(q).name = sf(q).name;  surf(q).area = sf(q).area;
+            surf(q).mat = decode_mat(sf(q).mat);  surf(q).alpha = double(sf(q).alpha(:)');
+        end
+        so = 0;  if isfield(E, 'S_open') && ~isempty(E.S_open), so = E.S_open; end
+        r = nb_enclosure_surfaces(SRC(s).Lw, surf, so);
+        SRC(s).Lw = r.Lw_out;
+        enc{s} = r;
+    end
+end
 end
 
 function dem = read_dem(job)
@@ -33,9 +84,15 @@ end
 function obs = read_obstacles(job)
 obs = {};
 if isempty(job.obstacles), return; end
-for k = 1:numel(job.obstacles)
-    o = job.obstacles(k);
-    obs{end+1} = struct('x', o.x(:)', 'y', o.y(:)', 'h', o.h); %#ok<AGROW>
+L = job.obstacles;
+if iscell(L), L = [L{:}]; end
+for k = 1:numel(L)
+    o = L(k);
+    s = struct('x', o.x(:)', 'y', o.y(:)');
+    if isfield(o, 'top') && ~isempty(o.top), s.top = o.top; else, s.h = o.h; end   % absolute top or height above ground
+    if isfield(o, 'gap') && ~isempty(o.gap), s.gap = o.gap; end
+    if isfield(o, 'mat') && ~isempty(o.mat), s.mat = decode_mat(o.mat); end         % transmission through the screen
+    obs{end+1} = s; %#ok<AGROW>
 end
 end
 
@@ -132,6 +189,7 @@ NX = g.nx;  NY = g.ny;  NP = NX*NY;
 xg = g.x0 + (0:NX-1)*g.cs;
 yg = g.y0 + (0:NY-1)*g.cs;
 NS = numel(job.sources);
+[SRC, enc] = prep_sources(job);
 detail = strcmp(job.detail, 'full');
 needBands = job.want_bands || detail || ~isempty(lim);
 active = job.active_rows(:)';                       % 1-based grid rows to compute (rows outside the area are skipped)
@@ -140,7 +198,7 @@ chunk = max(1, min(numel(active), job.chunk_rows));
 nChunks = ceil(numel(active)/chunk);
 
 A.LAeq = nan(NP, 1);
-if needBands, A.Lp = nan(NP, 8); A.LpA = nan(NP, 8); end
+if needBands, A.Lp = nan(NP, 8); A.LpA = nan(NP, 8); A.LZ = nan(NP, 1); end
 if detail
     A.Adiv = nan(NP, 8); A.Aatm = nan(NP, 8); A.Agr = nan(NP, 8); A.Abar = nan(NP, 8);
     A.dom = nan(NP, 1); A.kind = nan(NP, 1); A.ground = nan(NP, 1); A.dist = nan(NP, 1);
@@ -158,11 +216,12 @@ for ci = 1:nChunks
     [XX, YY] = meshgrid(xg, yg(rows));
     xv = reshape(XX.', [], 1);  yv = reshape(YY.', [], 1);
     for s = 1:NS
-        S = job.sources(s);
+        S = SRC(s);
         c = base;
         c.dem = dem;
         c.source = struct('x', S.x, 'y', S.y, 'h', S.h);
-        c.Lw = S.Lw(:)';
+        c.Lw = S.Lw;                                           % after the enclosure, if the source has one
+        c.Dc = S.Dc;                                           % directivity correction, 1x8 dB
         c.grid = struct('x', xg, 'y', yg(rows));
         c.hr = job.hr;
         c.obstacles = obs;
@@ -175,7 +234,7 @@ for ci = 1:nChunks
             sAdiv(okd, :) = nb_adiv(dd(okd)) * ones(1, 8);
             sAatm = aatm_for(dd, base);
             if NS == 1
-                res = o.Lp - ((c.Lw) - (sAdiv + sAatm + o.Agr + o.Abar));
+                res = o.Lp - ((c.Lw + c.Dc) - (sAdiv + sAatm + o.Agr + o.Abar));
                 closure = max(closure, max(abs(res(:)), [], 'omitnan'));
             end
         end
@@ -199,7 +258,7 @@ for ci = 1:nChunks
     end
     LA = nb_energy_sum(accLpA, 2);                              % 8 A-weighted bands -> dB(A)
     A.LAeq(idx) = LA;
-    if needBands, A.Lp(idx, :) = accLp;  A.LpA(idx, :) = accLpA; end
+    if needBands, A.Lp(idx, :) = accLp;  A.LpA(idx, :) = accLpA;  A.LZ(idx) = nb_energy_sum(accLp, 2); end
     if detail
         A.Adiv(idx,:) = dAdiv; A.Aatm(idx,:) = dAatm; A.Agr(idx,:) = dAgr; A.Abar(idx,:) = dAbar;
         A.dom(idx) = domv; A.kind(idx) = dkind; A.dist(idx) = ddist; A.ground(idx) = o.ground;
@@ -211,6 +270,7 @@ for ci = 1:nChunks
     end
 end
 R.nSources = NS;  R.nObstacles = numel(obs);  R.closure_max_abs_dB = closure;  R.detail = detail;
+R.enclosures = enc;  R.Lw_effective = reshape([SRC.Lw], 8, [])';
 write_all(job, R, A);
 end
 
@@ -221,7 +281,8 @@ dem = read_dem(job);
 obs = read_obstacles(job);
 lim = read_limits(job);
 NR = numel(job.receivers);  NS = numel(job.sources);
-A.LAeq = nan(NR, 1);  A.Lp = nan(NR, 8);  A.LpA = nan(NR, 8);
+[SRC, enc] = prep_sources(job);
+A.LAeq = nan(NR, 1);  A.LZ = nan(NR, 1);  A.Lp = nan(NR, 8);  A.LpA = nan(NR, 8);
 A.Adiv = nan(NR, 8);  A.Aatm = nan(NR, 8);  A.Agr = nan(NR, 8);  A.Abar = nan(NR, 8);
 A.dom = nan(NR, 1);   A.kind = nan(NR, 1);  A.ground = nan(NR, 1);  A.dist = nan(NR, 1);
 reasons = cell(NR, 1);
@@ -230,11 +291,12 @@ for r = 1:NR
     Rc = job.receivers(r);
     ok = true;  best = -Inf;
     for s = 1:NS
-        S = job.sources(s);
+        S = SRC(s);
         c = base;
         c.dem = dem;
         c.source = struct('x', S.x, 'y', S.y, 'h', S.h);
-        c.Lw = S.Lw(:)';
+        c.Lw = S.Lw;
+        c.Dc = S.Dc;
         c.receiver = struct('x', Rc.x, 'y', Rc.y, 'h', Rc.h);
         c.obstacles = obs;
         o = run_case_3d(c);
@@ -253,7 +315,7 @@ for r = 1:NR
         end
     end
     if ok
-        A.LAeq(r) = nb_energy_sum(accLpA);  A.Lp(r, :) = accLp;  A.LpA(r, :) = accLpA;
+        A.LAeq(r) = nb_energy_sum(accLpA);  A.Lp(r, :) = accLp;  A.LpA(r, :) = accLpA;  A.LZ(r) = nb_energy_sum(accLp);
         A.Adiv(r,:) = dm.Adiv;  A.Aatm(r,:) = dm.Aatm;  A.Agr(r,:) = dm.Agr;  A.Abar(r,:) = dm.Abar;
         A.dom(r) = dm.s;  A.dist(r) = dm.d;
         A.kind(r) = double(strcmp(dm.kind, 'blocked')) + 2*double(strcmp(dm.kind, 'clear_crest'));
@@ -267,5 +329,30 @@ if ~isempty(lim)
     A.worst_margin = C.worst_margin;  A.margin_bands = C.margin_bands;
 end
 R.reasons = reasons;
+R.enclosures = enc;
 write_all(job, R, A);
+end
+
+% ------------------------------------------------------------------ material / atmosphere previews
+function do_material(job)
+% Transmission loss of one material as the core resolves it (mass law or measured), for the add-in's preview table.
+m = nb_material('resolve', decode_mat(job.mat));
+R.TL = m.TL;  R.TLeff = m.TLeff;  R.source = m.source;  R.confidence = m.confidence;
+R.surface_mass = m.surface_mass;  R.warnings = m.warnings;  R.openness = m.openness;
+R.fingerprint = nb_fingerprint();
+wjson(job, R);
+end
+
+function do_atmosphere(job)
+% Atmospheric absorption coefficient alpha (dB/km) per octave band, from the core.
+a = job.atm;
+b = nb_bands();
+if strcmp(job.mode, 'iso1996')
+    [~, alpha] = nb_aatm_1996(1000, a.T_C, a.RH);
+else
+    [~, alpha] = nb_aatm(1000, a.T_C, a.RH, a.p_kPa);
+end
+R.alpha_dB_per_km = alpha(:)';  R.f_nominal = b.f(:)';
+R.fingerprint = nb_fingerprint();
+wjson(job, R);
 end

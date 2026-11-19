@@ -28,8 +28,9 @@ S5, S6 = "5. Limits (optional)", "6. Outputs"
 
 def _nb():
     """Import the helper package fresh, so edits to noisebox/*.py apply after a toolbox Refresh."""
-    from noisebox import config, arcgis_io, exchange, outputs, pipeline
-    for m in (config, arcgis_io, exchange, outputs, pipeline):
+    from noisebox import (config, issues, structures, scenario, arcgis_io, exchange, outputs, pipeline,
+                          scenario_run)
+    for m in (config, issues, structures, scenario, arcgis_io, exchange, outputs, pipeline, scenario_run):
         importlib.reload(m)
     return pipeline, arcgis_io
 
@@ -66,7 +67,7 @@ def _run(fn, *args):
     try:
         return fn(*args)
     except Exception as e:  # noqa: BLE001
-        if type(e).__name__ != "NoiseBoxError":
+        if not any(c.__name__ == "NoiseBoxError" for c in type(e).__mro__):   # includes IssuesError
             raise
         err = str(e)
     finally:
@@ -305,7 +306,7 @@ class Toolbox:
     def __init__(self):
         self.label = "NoiseBox"
         self.alias = "noisebox"
-        self.tools = [CreateInputLayers, NoiseMap, NoiseAtReceivers, CompareNoiseMaps, CheckMatlabLink]
+        self.tools = [CreateInputLayers, NoiseMap, NoiseAtReceivers, CompareNoiseMaps, CheckMatlabLink, RunScenario]
 
 
 class CreateInputLayers:
@@ -473,6 +474,43 @@ class CompareNoiseMaps:
              "threshold": P["threshold"].value, "out_gdb": P["out_gdb"].valueAsText,
              "run_name": P["run_name"].valueAsText, "add_map": bool(P["add_map"].value)}
         _run(pipeline.compare_rasters, p, _ToolLog())
+
+    def postExecute(self, parameters):
+        return
+
+
+class RunScenario:
+    """Runs one scenario file written by the NoiseBox add-in. In Pro it runs in-process, so the results are added to
+    the open map (grouped, styled). The add-in validates first and shows every issue; this tool repeats the checks."""
+
+    def __init__(self):
+        self.label = "Run Scenario (used by the add-in)"
+        self.description = ("Calculates a NoiseBox scenario saved by the NoiseBox ribbon tab (JSON file). "
+                            "Use the ribbon for editing; use this tool for batch runs and scripts.")
+        self.category = "5. Add-in"
+
+    def getParameterInfo(self):
+        p = _P("scenario", "Scenario file (.json)", "DEFile", ptype="Required")
+        p.filter.list = ["json"]
+        return [p]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        return
+
+    def updateMessages(self, parameters):
+        return
+
+    def execute(self, parameters, messages):
+        _nb()
+        from noisebox import scenario, scenario_run
+        sc, iss = scenario.load(parameters[0].valueAsText)
+        if sc is None:
+            raise arcpy.ExecuteError("; ".join(str(i) for i in iss))
+        res = _run(scenario_run.run, sc, _ToolLog())
+        arcpy.AddMessage("Created: " + ", ".join("%s=%s" % kv for kv in res["created"].items()))
 
     def postExecute(self, parameters):
         return

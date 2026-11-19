@@ -1,0 +1,492 @@
+<!doctype html><html><head><meta charset='utf-8'><title>NoiseBox manual</title><style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', Arial, sans-serif; color: #1c2430; font-size: 10.3pt; line-height: 1.45; }
+h1 { font-size: 27pt; color: #1f3b5c; margin: 0 0 4pt 0; }
+h2 { font-size: 16pt; color: #1f3b5c; border-bottom: 2px solid #2f6fa8; padding-bottom: 3pt; margin-top: 22pt; page-break-after: avoid; }
+h3 { font-size: 12pt; color: #2f6fa8; margin: 14pt 0 4pt; page-break-after: avoid; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.cover .sub { font-size: 14pt; color: #4b5563; margin-bottom: 26pt; }
+.cover .meta { color: #6b7280; font-size: 10pt; border-top: 1px solid #d1d5db; padding-top: 8pt; margin-top: 26pt; }
+.pb { page-break-before: always; }
+.box { border-left: 4px solid #2f6fa8; background: #eef4fb; padding: 7pt 10pt; margin: 8pt 0; page-break-inside: avoid; }
+.warn { border-left-color: #d9822b; background: #fff6ea; }
+.bad { border-left-color: #b42318; background: #fdecea; }
+.ok { border-left-color: #2e7d32; background: #edf7ee; }
+table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 9.4pt; page-break-inside: auto; }
+th { background: #1f3b5c; color: white; text-align: left; padding: 4pt 6pt; }
+td { border-bottom: 1px solid #e5e7eb; padding: 3.5pt 6pt; vertical-align: top; }
+tr { page-break-inside: avoid; }
+table.cat { font-size: 7.6pt; } table.cat td { padding: 2pt 4pt; }
+table.cat tr.error td:nth-child(2) { color: #b42318; font-weight: 600; }
+table.cat tr.warning td:nth-child(2) { color: #b26200; font-weight: 600; }
+table.cat tr.info td:nth-child(2) { color: #6b7280; }
+.step { display: flex; gap: 9pt; margin: 9pt 0; page-break-inside: avoid; }
+.num { flex: 0 0 22pt; height: 22pt; border-radius: 50%; background: #2f6fa8; color: white; text-align: center; line-height: 22pt; font-weight: 700; }
+.step .body { flex: 1; }
+.fig { text-align: center; margin: 8pt 0; page-break-inside: avoid; }
+.fig img { max-width: 100%; }
+.cap { font-size: 8.6pt; color: #6b7280; margin-top: 2pt; }
+.two { display: flex; gap: 12pt; align-items: flex-start; } .two > div { flex: 1; }
+code, .k { font-family: Consolas, monospace; background: #f1f3f5; padding: 0 3pt; border-radius: 2pt; font-size: 9.2pt; }
+pre { background: #f1f3f5; padding: 7pt 9pt; border-radius: 4pt; font-size: 8.8pt; overflow: hidden; white-space: pre-wrap; }
+.toc a { color: #1f3b5c; text-decoration: none; } .toc li { margin: 2pt 0; }
+.yes { color: #2e7d32; font-weight: 600; } .no { color: #b42318; font-weight: 600; } .part { color: #b26200; font-weight: 600; }
+ul, ol { margin: 4pt 0 4pt 18pt; padding: 0; }
+</style></head><body>
+<div class="cover">
+  <h1>NoiseBox for ArcGIS Pro</h1>
+  <div class="sub">User manual: outdoor noise mapping to ISO 9613-2, with a worked example</div>
+  <div class="box warn"><b>Status of this version.</b> The calculation engine, the scenario files, the checks and the Python tools are built and tested
+  (section 9). The ribbon tab and dockable pane (the <i>add-in</i>) are <b>compiled and packaged</b> (<code>dist\NoiseBox.esriAddinX</code>) and pass static checks
+  (Esri's DAML schema, class names, XAML bindings), but they have <b>never been loaded or clicked in ArcGIS Pro</b>: no automated way to drive Pro's window was available.
+  Pictures of the ribbon and pane in this manual are therefore <b>schematic drawings</b> made from the design, not screenshots. Every map, chart and number in the
+  worked example is <b>real output</b> of the engine. Please report anything that behaves differently from this manual when you first use the ribbon.</div>
+  <div class="meta">ArcGIS Pro 3.5 or later &nbsp;|&nbsp; MATLAB R2022b to R2024b (tested: R2023a) &nbsp;|&nbsp; Python 3.10 for the MATLAB link<br>
+  Prediction method: ISO 9613-2:2024 (default), draft amendment and 1996 edition selectable &nbsp;|&nbsp; No ISO certification or conformance is claimed.</div>
+</div>
+
+<h2 style="margin-top:0">Contents</h2>
+<ol class="toc">
+<li>What NoiseBox does</li><li>What you need</li><li>Installing on a computer</li><li>The workspace: ribbon and pane</li>
+<li>Worked example: a drill rig, step by step</li><li>Reading the results</li><li>Errors and warnings</li>
+<li>What the engine calculates and what it does not</li><li>What was tested, and what was not</li><li>Troubleshooting</li>
+<li>Appendix A: every error, warning and note</li><li>Appendix B: scenario file and command line</li></ol>
+
+<h2>1. What NoiseBox does</h2>
+<p>NoiseBox predicts the sound level of a point source at every cell of a grid, the way ISO 9613-2 describes it, and puts the result on your map. You describe a
+<b>scenario</b> (a source and its spectrum, terrain, an area, and optionally buildings, noise barriers and an enclosure around the source). NoiseBox checks it,
+calculates it in your own validated MATLAB code, and adds a named group of rasters to <i>Contents</i>. You can then change one thing (a taller barrier, an enclosure)
+and compare.</p>
+<div class="two"><div>
+<h3>Why the checking is built in</h3>
+<p>Every input is checked before anything runs. A problem is shown as a numbered message that says what is wrong, <i>why</i> it matters, and what to do. Clicking a message takes you to the input. There are 256 such messages (Appendix A).</p></div>
+<div><h3>How the pieces fit</h3>
+<p>ArcGIS Pro (ribbon + pane) writes a <b>scenario file</b>. Pro's Python reads it and starts a small <b>worker</b> in Python 3.10 that owns MATLAB. MATLAB runs your <code>matlab\core</code> files. No acoustics are calculated anywhere else, so editing a <code>.m</code> file changes the next run.</p></div></div>
+<h3>Two ways to use it</h3>
+<table><tr><th>Way</th><th>For</th><th>Status</th></tr>
+<tr><td><b>Ribbon tab + pane</b> (the add-in)</td><td>Interactive: pick or draw the source, structures and area on the map, see them update, run, compare.</td><td class="part">Compiled, packaged, statically checked; not yet run inside Pro</td></tr>
+<tr><td><b>Toolbox <code>NoiseBox.pyt</code></b> (6 tools incl. <i>Run Scenario</i>)</td><td>Dialog tools, scripts, batch runs and saved scenario files. Same engine.</td><td class="yes">Built and tested</td></tr></table>
+
+<h2 class="pb">2. What you need</h2>
+<table><tr><th>Item</th><th>Version</th><th>Notes</th></tr>
+<tr><td>ArcGIS Pro</td><td>3.5 or later</td><td>Tested with 3.5.3 (Python 3.11 inside Pro).</td></tr>
+<tr><td>MATLAB</td><td>R2022b to R2024b</td><td>Licensed on that computer. Tested with R2023a. No toolboxes are used.</td></tr>
+<tr><td>Python 3.10 (64-bit)</td><td>3.10.x</td><td>From python.org. Needed only because the MATLAB Engine for Python does not run in Pro's Python 3.11. Used in a separate environment.</td></tr>
+<tr><td>This NoiseBox folder</td><td>&nbsp;</td><td>Copy it anywhere (not inside a folder that OneDrive/Dropbox is syncing is best).</td></tr>
+<tr><td><i>Only to rebuild the ribbon add-in:</i> .NET SDK</td><td>8 or newer</td><td><code>winget install Microsoft.DotNet.SDK.8</code>. The computer that <i>uses</i> the add-in does not need it.</td></tr>
+<tr><td>A DTM raster (optional)</td><td>any single-band elevation raster</td><td>The example uses <code>sample\dem_sample.tif</code>. For Israel, <code>setup\make_israel_dem.py</code> downloads SRTM 30 m.</td></tr></table>
+
+<h2>3. Installing on a computer</h2>
+<p>Do these once per computer. Everything is relative to the NoiseBox folder, so the folder can be moved or copied.</p>
+<div class="step"><div class="num">1</div><div class="body"><b>Copy the folder.</b> Copy the whole <code>noisebox_for_Arc_GIS_pro</code> folder (or clone the GitHub repository) to the new computer, for example <code>C:\NoiseBox</code>.</div></div>
+<div class="step"><div class="num">2</div><div class="body"><b>Install Python 3.10</b> from python.org if <code>py -3.10 --version</code> does not work in a command window. Tick <i>Add to PATH</i> or <i>py launcher</i>.</div></div>
+<div class="step"><div class="num">3</div><div class="body"><b>Run the setup script.</b> Open PowerShell in the NoiseBox folder and run
+<pre>.\setup\setup_noisebox.ps1</pre>
+It creates the Python 3.10 environment in <code>%LOCALAPPDATA%\NoiseBox\venv310</code>, installs numpy and the MATLAB Engine for Python from your MATLAB installation (add <code>-MatlabRoot "D:\MATLAB\R2023a"</code> if MATLAB is not in <code>C:\Program Files\MATLAB</code>), and registers the folder for the add-in.</div></div>
+<div class="step"><div class="num">4</div><div class="body"><b>Add the toolbox in ArcGIS Pro.</b> <i>Catalog pane &gt; Toolboxes &gt; right-click &gt; Add Toolbox</i>, choose <code>NoiseBox.pyt</code>. Run <b>4. Utilities &gt; Check MATLAB Link</b>. Expected: <i>MATLAB link OK</i>, a smoke-test level of about 45.22 dB(A) and matching <code>.m</code> file hashes. This step proves the whole chain works on this computer.</div></div>
+<div class="step"><div class="num">5</div><div class="body"><b>(Ribbon add-in) Get the package.</b> The repository already contains the built package <code>dist\NoiseBox.esriAddinX</code>; you can skip to step 6. To rebuild it (after changing the source), on a computer with a .NET SDK (8 or newer; built here with 11.0.100, <code>winget install Microsoft.DotNet.SDK.8</code>) and ArcGIS Pro 3.5:
+<pre>.\setup\build_addin.ps1</pre>
+The script builds <code>addin\NoiseBoxAddin</code> and zips <code>Config.daml</code> and the assembly into <code>dist\NoiseBox.esriAddinX</code>. (Esri's own packaging step needs Visual Studio's MSBuild, so the script packages the add-in itself, in the same layout.) The computer that only <i>uses</i> the add-in needs neither the SDK nor Visual Studio.</div></div>
+<div class="step"><div class="num">6</div><div class="body"><b>Install the add-in.</b> Close ArcGIS Pro, double-click <code>NoiseBox.esriAddinX</code>, choose <i>Install</i>. Start Pro and open a map: a <b>NoiseBox</b> tab appears. (If Pro asks, allow add-ins from this file.) The add-in finds the Python side through <code>%LOCALAPPDATA%\NoiseBox\addin.json</code>, which step 3 wrote; on a computer where you only copy the <code>.esriAddinX</code>, still run step 3 there, or set the environment variable <code>NOISEBOX_HOME</code> to the NoiseBox folder.</div></div>
+<div class="box warn"><b>Step 6 has not been done yet.</b> The package builds and passes the static checks (section 9), but installing it into ArcGIS Pro and clicking through the ribbon has not been tried. If Pro reports an add-in error on first start, send the message shown by <i>Project &gt; Add-In Manager</i>. Steps 1 to 4 (the toolbox route) have been run and tested end to end.</div>
+
+<h2 class="pb">4. The workspace: ribbon and pane</h2>
+<p>The map stays in the centre and <i>Contents</i> on the left. NoiseBox adds one ribbon tab and one pane on the right (docked with <i>Catalog</i>).</p>
+<div class="fig"><img src="figures/ribbon.png" width="100%"><div class="cap">Schematic of the NoiseBox tab (drawn from the design, not a screenshot): six groups; a &#9662; marks a split button whose arrow offers the alternatives.</div></div>
+<table><tr><th>Group</th><th>Buttons</th><th>What it does</th></tr>
+<tr><td>Scenario</td><td>New, Open, Save, Duplicate</td><td>A scenario is one file (<code>.nbscenario.json</code>). Duplicate it to try a mitigation next to the baseline.</td></tr>
+<tr><td>Source</td><td>Set Location &#9662;, Source Spectrum, Directivity</td><td><i>Set Location</i> arrow: <b>From Layer</b>, <b>Enter Coordinates</b>, <b>Place on Map</b> (activates the placement tool at once; Esc cancels).</td></tr>
+<tr><td>Terrain and Area</td><td>Select DTM &#9662;, Set Analysis Area &#9662;, Receiver Grid</td><td>DTM from the project's rasters or browse; area from polygons, drawn polygon or rectangle, radius around the source, or the captured map extent; cell size (match the DTM or custom).</td></tr>
+<tr><td>Structures</td><td>Add Building &#9662;, Add Noise Barrier &#9662;, Add Enclosure &#9662;</td><td>From a layer, drawn, or entered numerically (barrier: start, length, azimuth, height; enclosure: length, width, height, orientation).</td></tr>
+<tr><td>Propagation</td><td>Ground, Atmosphere, Terrain Screening, Meteorology</td><td>Each opens its section of the pane.</td></tr>
+<tr><td>Analysis</td><td>Preview, Run, Results</td><td><b>Preview</b> is fast and calculates no acoustics; <b>Run</b> calculates and adds results to Contents.</td></tr></table>
+<h3>The pane</h3>
+<p>Sections open and close independently and can be visited in any order. A closed section summarises its real settings (<i>Drill-01, 1.2 m above ground</i>). <b>Preview</b> and <b>Run</b> stay at the bottom. If something is missing, the message names it and clicking it opens the input.</p>
+<div class="two"><div class="fig"><img src="figures/pane_source.png" width="100%"><div class="cap">Schematic: Source section open, other sections collapsed with their summaries.</div></div>
+<div class="fig"><img src="figures/pane_structures.png" width="100%"><div class="cap">Schematic: Structures. The checkbox is <i>Include in Analysis</i>; <i>Drawn on map</i> only controls the drawing.</div></div></div>
+
+<h2 class="pb">5. Worked example: a drill rig behind a screen</h2>
+<p><b>Situation.</b> A drill rig (<i>Drill-01</i>) runs at a site in Tel Aviv (Israeli TM Grid, EPSG 2039). Neighbours stand 60 to 160 m to the east. The limit at their boundary is <b>55 dB(A)</b>. We predict the baseline, then add a 4 m noise barrier, then a sound-proof enclosure around the rig, and see what each buys. The example uses the sample data in <code>sample\</code>, so you can repeat every step.</p>
+<div class="step"><div class="num">1</div><div class="body"><b>Open the map and a new scenario.</b> Open your project and a map. On the NoiseBox tab click <b>New</b>. In the pane, <i>Scenario</i>, type the name <code>Drill rig, baseline</code>.</div></div>
+<div class="step"><div class="num">2</div><div class="body"><b>Place the source.</b> Click the arrow beside <b>Set Location</b>. Choose one of three equivalent ways; all give the same point:
+<ul><li><b>From Layer:</b> choose <code>sources</code> (from <code>sample\NoiseBox_sample.gdb</code>), select the point on the map, click <i>Use this layer point</i>. If several points are selected you are asked which one.</li>
+<li><b>Enter Coordinates:</b> the coordinate fields open and the first is focused. Choose EPSG 2039; the labels read <i>Easting</i> and <i>Northing</i> (for WGS 84 they would read <i>Longitude</i> and <i>Latitude</i>). Enter <code>180000</code> and <code>665000</code>.</li>
+<li><b>Place on Map:</b> the placement tool starts at once; click the map. Coordinates appear in the pane immediately.</li></ul>
+Name the source <code>Drill-01</code>. Under <i>Source height above ground</i> enter <code>1.2</code> (metres).</div></div>
+<div class="step"><div class="num">3</div><div class="body"><b>Enter the spectrum.</b> In the Lw table type the eight sound power levels, or copy a row or column from Excel or MATLAB and click <b>Paste</b> (or press Ctrl+V in the table): <code>92 96 98 97 94 90 85 78</code> dB re 1 pW for 63 to 8000 Hz. Use <b>Save profile</b> to keep it as <i>Drill rig (example)</i>. An empty cell is <i>missing</i> and stops the run; it is not read as 0 dB.
+<div class="fig"><img src="figures/pane_source.png" width="38%" style="display:none"></div></div></div>
+<div class="step"><div class="num">4</div><div class="body"><b>Select the terrain.</b> <i>Terrain and Area</i>: choose the raster <code>dem_sample</code> from the list (or Browse) and click <i>Use this raster</i>. The pane shows its native cell size, coordinate system and vertical unit. If the unit is unknown it asks you to choose metres or feet, because a wrong unit would be off by a factor 3.28. <b>Show Coverage</b> draws any gaps in red. The source elevation then appears: ground 21.0 m + height 1.2 m = 22.2 m.</div></div>
+<div class="step"><div class="num">5</div><div class="body"><b>Set the analysis area and grid.</b> Click <b>Set Analysis Area &#9662; &gt; Draw Rectangle</b> and drag a rectangle 300 m wide and 200 m high around the source (or enter coordinates in the scenario). Results are produced only inside it; the source may even be outside. Set <b>Custom</b> cell size <code>5</code> m and receiver height <code>1.5</code> m (above the terrain at each receiver cell). The pane shows about <b>2,400 receiver cells</b>.</div></div>
+<div class="step"><div class="num">6</div><div class="body"><b>Outputs.</b> Choose an output geodatabase (a <code>.gdb</code>), the run name <code>A_baseline</code>, tick <i>LAeq dB(A)</i> and <i>unweighted level</i>, tick the 500 and 1000 Hz band rasters, set the allowed level <code>55</code> dB(A) and the shared colour scale <code>35</code> to <code>75</code> dB. The pane lists the dataset names that will be created.</div></div>
+<div class="step"><div class="num">7</div><div class="body"><b>Preview, then Run.</b> Click <b>Preview</b>. Anything missing appears in <i>Issues</i> with a specific message, for example:
+<div class="fig"><img src="figures/pane_issues.png" width="46%"><div class="cap">Schematic of the Issues section when height and one band are missing. Real texts are in Appendix A.</div></div>
+Fix them (click an issue to go to the input), then click <b>Run</b>. MATLAB starts (10 to 80 seconds), then the grid is calculated. When it finishes, the results are in <i>Contents</i> in the group <code>NoiseBox: Drill rig, baseline | A_baseline</code>.</div></div>
+<div class="fig"><img src="figures/maps_abc.png" width="100%"><div class="cap">Real output, shared colour scale. A baseline; B with the 4 m barrier; C with barrier and enclosure. The dark line is the 55 dB(A) limit. Red dot: source. 9.14.0.2337262 (R2023a) Update 5, ISO 9613-2:2024.</div></div>
+<div class="step"><div class="num">8</div><div class="body"><b>Add the barrier.</b> <b>Duplicate</b> the scenario (name it <code>B_barrier</code>). <b>Add Noise Barrier &#9662; &gt; Precise Placement</b>: click the start point, then in the pane enter length <code>120</code> m, azimuth <code>0</code> (north), height <code>4</code> m. (Azimuth is clockwise from map north.) The barrier on the map moves as you type. Keep <i>Constant height above local terrain</i>. Click <b>Profile preview</b> to check the ground and barrier top:
+<div class="fig"><img src="figures/profile.png" width="62%"><div class="cap">Real output: ground from the DTM and the barrier top. The engine uses a flat top per barrier segment (28.0 m).</div></div>
+The barrier is calculated as <i>diffraction only</i>. (Tick <i>Also calculate transmission</i> only if you can give the material.) Run it.</div></div>
+<div class="step"><div class="num">9</div><div class="body"><b>Add the enclosure.</b> Duplicate again (<code>C_barrier_enclosure</code>). <b>Add Enclosure &#9662; &gt; Quick Rectangle</b>: length 6 m, width 4 m, height 3 m, linked to the source. The footprint, roof and source appear on the map. Choose <b>Mass Law</b> and enter surface density <code>25</code> kg/m&sup2;, and the interior absorption coefficient alpha <code>0.3</code> in every band (alpha is a coefficient from 0 to 1, <b>not</b> a dB value). Enter an <b>opening area</b> of <code>0.5</code> m&sup2; (a ventilation opening). <i>Show TL per band</i> asks the core for the transmission loss (an <i>estimate</i>, labelled so).
+<div class="box warn"><b>Do not skip the opening.</b> The enclosure model is idealised: a closed 25 kg/m&sup2; box with absorptive walls would give about 50 dB of reduction at high frequencies, which no real enclosure reaches because of openings, leaks, doors and flanking paths. With the 0.5 m&sup2; opening the achievable reduction is limited to about 22 dB (warning ENC-021 says so). Treat enclosure results as an estimate and confirm with measurements.</div> To give each wall and the roof its own material, tick <i>Separate materials</i> and pick a face; the selected face is highlighted on the map. With manufacturer data choose <b>Manufacturer Data</b> and enter measured TL and alpha per band. Run it.
+<div class="fig"><img src="figures/spectrum.png" width="62%"><div class="cap">Real output: source Lw and the Lw radiated through the enclosure (diffuse-field model, applied once).</div></div></div></div>
+<div class="step"><div class="num">10</div><div class="body"><b>Compare.</b> The three runs now sit in Contents, drawn with the same colours. The difference maps show where each measure helps:
+<div class="fig"><img src="figures/differences.png" width="86%"><div class="cap">Real output: reduction in dB from the barrier, and additionally from the enclosure.</div></div>
+<table><tr><th>Receiver</th><th>A baseline dB(A)</th><th>B + barrier</th><th>C + barrier + enclosure</th></tr><tr><td>R1  60 m east</td><td>48.7</td><td>43.9</td><td>27.0</td></tr><tr><td>R2  100 m east, 30 m north</td><td>40.5</td><td>37.1</td><td>20.2</td></tr><tr><td>R3  160 m east, 40 m south</td><td>41.1</td><td>36.9</td><td>20.0</td></tr>
+<tr><td><b>Highest level</b></td><td>77.7</td><td>77.7</td><td>60.8</td></tr>
+<tr><td><b>Share of cells above 55 dB(A)</b></td><td>9 %</td><td>8 %</td><td>0 %</td></tr></table>
+Reading this for a decision: the enclosure removes the exceedance where the barrier alone does not; compare the share above the limit, not only the maximum. A scenario edited later never changes these results: each run keeps a snapshot (section 6).</div></div>
+
+<h2 class="pb">6. Reading the results</h2>
+<h3>What appears in Contents</h3>
+<pre>NoiseBox: Drill rig, baseline | A_baseline        (one group per run)
+  LAeq, dB(A) [iso2024]                          overall A-weighted level, shown first
+  Lz unweighted energy sum of 8 bands, dB        optional
+  A_baseline | Octave bands (Lp, unweighted)     only the bands you ticked
+  A_baseline | Limit check                       margin to the limit, PASS/FAIL (if a limit was given)
+  A_baseline | Inspect                           detail cells: click a cell to read every value</pre>
+<p>Legends carry the quantity, unit and prediction mode. With a <i>shared colour scale</i> the same colour means the same level in the baseline and in every mitigation run. Names are made unique, so an earlier run is never overwritten.</p>
+<h3>Click a cell, read everything</h3>
+<p>With <i>Detail cells</i> = Full, use <b>Identify</b> on the map. Each cell lists <code>LAeq</code>, <code>LZ</code>, <code>Status</code> (PASS/FAIL), <code>Margin_dBA</code>, <code>Lp_63 ... Lp_8000</code>, <code>LpA_63 ... LpA_8000</code>, the dominant source, distance, ground elevation, path type (free, blocked, clear crest), and for each band the attenuations <code>Adiv</code>, <code>Aatm</code>, <code>Agr</code>, <code>Abar</code>. The detail check <i>Lp = Lw + Dc - (Adiv + Aatm + Agr + Abar)</i> holds to 1e-12 dB. Above 100 000 cells the detail cells are skipped (and you are told).</p>
+<h3>Cells with no value</h3>
+<p>Cells inside a building footprint, at the source, outside the DTM or outside the area are left empty (NoData). The run summary counts the cells inside buildings, and a warning gives the share of empty cells.</p>
+<h3>Snapshots</h3>
+<p>Each run writes a table <code>&lt;run&gt;_Snapshot</code> into the geodatabase: the whole scenario (settings, spectrum, material data, structures), what was resolved, the MATLAB version and the code fingerprint. Re-running a snapshot reproduces the raster exactly (tested to 1e-9 dB). Command: <code>propy noisebox_cli.py snapshot &lt;gdb&gt; &lt;run&gt; --to scenario.json</code>.</p>
+
+<h2>7. Errors and warnings</h2>
+<p>There are three kinds. <b>Error:</b> the run is blocked until you fix it. <b>Warning:</b> it runs, but the result may not mean what you expect. <b>Note:</b> explains what will happen (for example that a hidden barrier is still calculated). Each has a code such as <code>SRC-014</code> (prefix = area: SRC source, SPC spectrum, DIR directivity, DTM terrain, ARA area and grid, STR/BLD/BAR/ENC structures, PRP propagation, OUT outputs, ENG engine).</p>
+<table><tr><th>You see</th><th>It means</th><th>Do</th></tr>
+<tr><td>SRC-014 Source height above ground is missing</td><td>The tool will not guess a height.</td><td>Type the height in metres.</td></tr>
+<tr><td>SPC-002 Lw is missing in 1 band(s): 125 Hz</td><td>An empty cell is not 0 dB.</td><td>Fill it, or type 0 if it really is 0.</td></tr>
+<tr><td>DTM-006 The vertical unit of the DTM is unknown</td><td>Metres or feet cannot be guessed.</td><td>Choose the unit in the pane.</td></tr>
+<tr><td>DTM-008 The source lies outside the DTM coverage</td><td>No ground elevation at the source.</td><td>Choose a larger DTM, or remove it for flat ground.</td></tr>
+<tr><td>ENC-004 The source is outside the enclosure footprint</td><td>The enclosure does not contain the source.</td><td>Move one of them.</td></tr>
+<tr><td>ENC-010 alpha is missing at 125 Hz</td><td>Interior absorption is needed for the enclosure model.</td><td>Enter alpha (0 to 1) for every band.</td></tr>
+<tr><td>BAR-022 transmission without material</td><td>You asked for transmission but gave no TL or mass.</td><td>Enter a material or untick transmission.</td></tr>
+<tr><td>OUT-001 / OUT-003 no output geodatabase / not a .gdb</td><td>Rasters need a file geodatabase.</td><td>Choose a <code>.gdb</code>.</td></tr>
+<tr><td>DTM-016 terrain screening off is not available</td><td>With a DTM the engine always includes terrain diffraction.</td><td>Leave it on, or remove the DTM.</td></tr></table>
+<p>The complete list is Appendix A. Preview shows all issues at once; the same checks run again at the start of Run.</p>
+
+<h2 class="pb">8. What the engine calculates and what it does not</h2>
+<table><tr><th>Effect</th><th>In this version</th><th>Notes</th></tr>
+<tr><td>Geometric divergence, atmospheric absorption, ground effect</td><td class="yes">Yes</td><td>ISO 9613-2:2024 (default); draft amendment and 1996 edition selectable. Uniform G, or separate source / middle / receiver G.</td></tr>
+<tr><td>Terrain: elevations and diffraction from a DTM</td><td class="yes">Yes</td><td>Cannot be switched off while keeping elevations (reported as an error, DTM-016).</td></tr>
+<tr><td>Screening by buildings and barriers (top and side paths)</td><td class="yes">Yes</td><td>Where terrain and structures obstruct the same path the engine takes the highest obstruction once; attenuation is not added twice. Barrier top is flat per segment.</td></tr>
+<tr><td>Transmission through a barrier</td><td class="part">Optional, approximate</td><td>Energy sum of diffracted and transmitted paths. An engineering approximation, <b>not</b> part of ISO 9613-2.</td></tr>
+<tr><td>Source enclosure</td><td class="part">Yes, diffuse-field model</td><td>Reduces the radiated sound power once (EN ISO 15667 style). Panel TL (dB) and interior alpha (0 to 1) are used separately. Assumes a diffuse interior field, no resonance or coincidence effects; the floor is ground. Several surfaces are combined by area (new core file <code>nb_enclosure_surfaces.m</code>; <code>nb_enclosure.m</code> is unchanged).</td></tr>
+<tr><td>Constant directivity correction Dc per band</td><td class="yes">Yes</td><td>One value per band for all directions.</td></tr>
+<tr><td>Angle-dependent directivity, heading</td><td class="no">No</td><td>The heading is stored but does not change results.</td></tr>
+<tr><td>Long-term meteorological correction C_met</td><td class="yes">Yes</td><td>Needs C0; applied to A-weighted levels only. Not applied by default.</td></tr>
+<tr><td>Reflections from buildings and barriers</td><td class="no">No</td><td>ISO 9613-2 cl. 7.5 image sources are not implemented.</td></tr>
+<tr><td>Multiple sources</td><td class="part">Core yes, ribbon one source</td><td>One source per scenario in the ribbon; the toolbox accepts several.</td></tr></table>
+
+<h2>9. What was tested, and what was not</h2>
+<div class="box ok"><b>Checked independently of the Pro window</b> (the calculation tests run the real MATLAB core, R2023a):
+<table><tr><td>Scenario validation, geometry, spectrum input, source methods (256-entry catalogue)</td><td>PASS: 151 checks passed, 0 failed, exit code 0 (16 s)</td></tr><tr><td>Command line used by the add-in (JSON, DTM coverage)</td><td>PASS: 14 checks passed, 0 failed, exit code 0 (103 s)</td></tr><tr><td>Add-in package: DAML vs Esri schema, classNames, refIDs, zip layout</td><td>PASS: 7 checks passed, 0 failed, exit code 0 (1 s)</td></tr><tr><td>Add-in pane: XAML bindings, handlers, converters, focus targets</td><td>PASS: 5 checks passed, 0 failed, exit code 0 (0 s)</td></tr><tr><td>Original toolbox vs the MATLAB core (raster, bands, every detail field)</td><td>PASS: overall result PASS, exit code 0 (182 s)</td></tr><tr><td>Original toolbox: hot reload, 2 sources, drawn inputs, polygon area, DEM, receivers, compare</td><td>PASS: 10 checks passed, 0 failed, exit code 0 (624 s)</td></tr><tr><td>Scenario runs on the MATLAB core: baseline, barrier, enclosure, Dc, C0, G, outputs, previews, snapshot</td><td>PASS: 25 checks passed, 0 failed, exit code 0 (708 s)</td></tr><tr><td>All toolbox tools through ArcPy&#x27;s geoprocessing framework (incl. Run Scenario)</td><td>PASS: overall result PASS, exit code 0 (260 s)</td></tr></table></div>
+<div class="box bad"><b>Not tested:</b> anything that needs the Pro window itself: the ribbon, the pane, the map tools (placing, sketching, picking, heading), the import window, and the add-in install step, which compile and pass static checks but were never run in ArcGIS Pro; Identify clicks on detail cells; the <i>Run Scenario</i> tool inside the Pro window (it was run through ArcPy's geoprocessing framework); the shared colour scale (it uses Pro's raster symbology objects); MATLAB versions other than R2023a; other computers.</div>
+
+<h2>10. Troubleshooting</h2>
+<table><tr><th>Problem</th><th>Check</th></tr>
+<tr><td>Check MATLAB Link fails: Python 3.10 not found</td><td>Run <code>setup\setup_noisebox.ps1</code>; or set <code>NOISEBOX_PY310</code> to a <code>python.exe</code>.</td></tr>
+<tr><td>"The MATLAB worker ended without a result"</td><td>Open MATLAB once to check the licence and that no other session blocks it; run Check MATLAB Link.</td></tr>
+<tr><td>Rasters cannot be saved (error 010240)</td><td>The output must be a file geodatabase (<code>.gdb</code>) that is not locked or read-only.</td></tr>
+<tr><td>The add-in says the NoiseBox folder was not found</td><td>Run step 3 on that computer, or set <code>NOISEBOX_HOME</code>.</td></tr>
+<tr><td>The run is slow</td><td>About 7 ms per cell after a 10 to 80 s MATLAB start. Use a larger cell size or a smaller area.</td></tr>
+<tr><td>You edited a <code>.m</code> file</td><td>Nothing to do: every run starts a fresh MATLAB. Check MATLAB Link shows the new hashes.</td></tr>
+<tr><td>After editing <code>noisebox\*.py</code> or <code>NoiseBox.pyt</code></td><td>Right-click the toolbox &gt; Refresh.</td></tr></table>
+
+<h2 class="pb">Appendix A: every error, warning and note</h2>
+<p>256 entries. <span style="color:#b42318"><b>error</b></span> blocks the run; <span style="color:#b26200"><b>warning</b></span> allows it; note explains. Text in braces is replaced by the actual value or name.</p>
+<h3>Scenario file and coordinate system (SCN-xxx, 10 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>SCN-001</td><td>error</td><td>The scenario file does not exist: {path}</td><td>Open a scenario from the list, or create a new one.</td></tr>
+<tr class='error'><td>SCN-002</td><td>error</td><td>The scenario file is not valid JSON ({detail}).</td><td>Restore the file from a backup or create a new scenario; do not edit the file by hand.</td></tr>
+<tr class='error'><td>SCN-003</td><td>error</td><td>The scenario was written by an unsupported schema version ({found}; this version reads {expected}).</td><td>Open it with the add-in version that saved it, or re-create the scenario.</td></tr>
+<tr class='error'><td>SCN-004</td><td>error</td><td>The scenario has no name.</td><td>Give the scenario a name in the Scenario group; it is used for the run name and the saved file.</td></tr>
+<tr class='warning'><td>SCN-005</td><td>warning</td><td>The scenario file contains unknown entries ({keys}); they are kept but ignored.</td><td>Update the add-in if the file came from a newer version.</td></tr>
+<tr class='error'><td>SCN-006</td><td>error</td><td>The scenario has no coordinate system for the analysis (crs.wkid is empty).</td><td>Pick a projected coordinate system in metres, e.g. Israeli TM Grid (2039) or the UTM zone of the site.</td></tr>
+<tr class='error'><td>SCN-007</td><td>error</td><td>The analysis coordinate system {wkid} is geographic (degrees). Distances cannot be computed in degrees.</td><td>Choose a projected, metre-based coordinate system for the analysis, e.g. {suggest}.</td></tr>
+<tr class='error'><td>SCN-008</td><td>error</td><td>The analysis coordinate system {wkid} uses {unit} ({mpu:.6g} m per unit). NoiseBox needs metres.</td><td>Choose a coordinate system whose linear unit is the metre.</td></tr>
+<tr class='error'><td>SCN-009</td><td>error</td><td>The coordinate system code {wkid} is not recognised.</td><td>Enter a valid EPSG/WKID code such as 2039 or 32636.</td></tr>
+<tr class='info'><td>SCN-010</td><td>info</td><td>Scenario saved as a snapshot: later edits do not change earlier results.</td><td></td></tr>
+</table>
+<h3>Source location and height (SRC-xxx, 20 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>SRC-001</td><td>error</td><td>No source has been placed.</td><td>Use Source &gt; Set Location: From Layer, Enter Coordinates or Place on Map.</td></tr>
+<tr class='error'><td>SRC-002</td><td>error</td><td>The source coordinates are not valid numbers ({x}, {y}).</td><td>Enter both coordinates as plain numbers (decimal point, no thousands separators).</td></tr>
+<tr class='error'><td>SRC-003</td><td>error</td><td>The source coordinates ({x}, {y}) cannot exist in coordinate system {wkid} ({detail}).</td><td>Check the coordinate order ({order}) and the system selected next to the fields.</td></tr>
+<tr class='warning'><td>SRC-004</td><td>warning</td><td>The coordinates look swapped: {x}, {y} read as {order} fall outside the valid range, but swapped they are valid.</td><td>Check that you entered {order} in that order.</td></tr>
+<tr class='warning'><td>SRC-005</td><td>warning</td><td>The source is far ({dist_km:.1f} km) from the analysis area; atmospheric absorption and ground effect will dominate.</td><td>Check the source location and the analysis area; results this far out are of low value.</td></tr>
+<tr class='error'><td>SRC-006</td><td>error</td><td>The source layer is empty or has no features that could be used: {layer}.</td><td>Pick a layer with a point feature, or place the source on the map.</td></tr>
+<tr class='error'><td>SRC-007</td><td>error</td><td>The layer {layer} contains {shape} features. A point source needs a point layer.</td><td>Choose a point layer, or place the source on the map.</td></tr>
+<tr class='error'><td>SRC-008</td><td>error</td><td>The source layer {layer} cannot be found or opened.</td><td>Add the layer to the map again, or use Enter Coordinates.</td></tr>
+<tr class='warning'><td>SRC-009</td><td>warning</td><td>{n} points are selected in {layer}. Only one is used: {chosen}.</td><td>Select a single point, or choose the one to use in the list.</td></tr>
+<tr class='error'><td>SRC-010</td><td>error</td><td>No feature named or numbered &#x27;{key}&#x27; exists in {layer}.</td><td>Check the name or ID, or pick the feature on the map.</td></tr>
+<tr class='error'><td>SRC-011</td><td>error</td><td>The source layer {layer} has no coordinate system.</td><td>Define the coordinate system of the layer (Define Projection) before using it.</td></tr>
+<tr class='warning'><td>SRC-012</td><td>warning</td><td>The source point has an empty geometry.</td><td>Pick another feature or place the source on the map.</td></tr>
+<tr class='info'><td>SRC-013</td><td>info</td><td>Source coordinates were converted from {from_wkid} to the analysis system {to_wkid}: {x:.3f}, {y:.3f}.</td><td></td></tr>
+<tr class='error'><td>SRC-014</td><td>error</td><td>Source height above ground is missing.</td><td>Enter the physical height of the source above the ground, in metres (for example 1.2).</td></tr>
+<tr class='error'><td>SRC-015</td><td>error</td><td>Source height above ground must be a number &gt;= 0 (got {value}).</td><td>Enter the height in metres; use 0 for a source on the ground.</td></tr>
+<tr class='warning'><td>SRC-016</td><td>warning</td><td>Source height {value} m is unusually large; check that it is a height above ground and not an elevation above sea level.</td><td>Source height is measured from the local ground, not from sea level.</td></tr>
+<tr class='warning'><td>SRC-017</td><td>warning</td><td>Source height is 0 m: the source is exactly on the ground, where ground effect is at its extreme.</td><td>Use a small positive height (e.g. the centre of the radiating surface) unless 0 is intended.</td></tr>
+<tr class='info'><td>SRC-018</td><td>info</td><td>Source elevation: ground {ground:.2f} m + height {h:.2f} m = {absolute:.2f} m above the DTM datum.</td><td></td></tr>
+<tr class='info'><td>SRC-019</td><td>info</td><td>No DTM is selected: the source elevation will be computed when terrain is selected; until then ground is taken as 0 m.</td><td></td></tr>
+<tr class='warning'><td>SRC-020</td><td>warning</td><td>The source and the layer point differ by {dist:.2f} m after unit conversion.</td><td>Check the coordinate system of the layer.</td></tr>
+</table>
+<h3>Source spectrum (SPC-xxx, 15 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>SPC-001</td><td>error</td><td>The source spectrum is empty.</td><td>Enter Lw in all eight octave bands (63 to 8000 Hz), paste them, or load a profile.</td></tr>
+<tr class='error'><td>SPC-002</td><td>error</td><td>Sound power Lw is missing in {n} band(s): {bands} Hz. A missing value is not the same as 0 dB.</td><td>Enter a value for every band; enter 0 only if the band really radiates 0 dB re 1 pW.</td></tr>
+<tr class='error'><td>SPC-003</td><td>error</td><td>Lw at {band} Hz is not a number ({value}).</td><td>Enter a number in dB re 1 pW.</td></tr>
+<tr class='warning'><td>SPC-004</td><td>warning</td><td>Lw at {band} Hz is negative ({value} dB). Check that these are sound power levels, not sound pressure levels or attenuations.</td><td>Lw is normally 60 to 140 dB re 1 pW for machinery.</td></tr>
+<tr class='warning'><td>SPC-005</td><td>warning</td><td>Lw at {band} Hz is very high ({value} dB re 1 pW). Check the unit.</td><td>Jet engines and similar are around 150 to 170 dB; machinery is usually below 130 dB.</td></tr>
+<tr class='warning'><td>SPC-006</td><td>warning</td><td>All eight Lw values are 0 dB: this is the empty default, not a measurement.</td><td>Enter the real spectrum before running.</td></tr>
+<tr class='warning'><td>SPC-007</td><td>warning</td><td>The Lw values are the same in every band ({value} dB): the source is treated as white noise.</td><td>Check that this is intended; machinery spectra normally slope.</td></tr>
+<tr class='error'><td>SPC-008</td><td>error</td><td>The pasted values contain {n} entries; 8 are needed (one per octave band from 63 to 8000 Hz).</td><td>Paste a row or column of exactly eight numbers, or paste two columns (frequency, level).</td></tr>
+<tr class='error'><td>SPC-009</td><td>error</td><td>The CSV file {path} could not be read ({detail}).</td><td>Use a file with one frequency column (63 ... 8000) and one level column, with or without a header.</td></tr>
+<tr class='error'><td>SPC-010</td><td>error</td><td>The CSV file contains the frequency {freq} Hz, which is not one of the eight supported octave bands.</td><td>Use the octave bands 63, 125, 250, 500, 1000, 2000, 4000 and 8000 Hz.</td></tr>
+<tr class='warning'><td>SPC-011</td><td>warning</td><td>The CSV file has no value for {bands} Hz; those bands stay empty.</td><td>Fill the missing bands before running.</td></tr>
+<tr class='error'><td>SPC-012</td><td>error</td><td>The source profile &#x27;{name}&#x27; cannot be found.</td><td>Choose a profile from the list or save one first.</td></tr>
+<tr class='error'><td>SPC-013</td><td>error</td><td>A source profile needs a name before it can be saved.</td><td>Type a name for the profile.</td></tr>
+<tr class='warning'><td>SPC-014</td><td>warning</td><td>A comma was found as the decimal separator in &#x27;{text}&#x27;; it was read as {value}.</td><td>Use a decimal point to avoid ambiguity.</td></tr>
+<tr class='info'><td>SPC-015</td><td>info</td><td>The spectrum is the {kind} spectrum &#x27;{name}&#x27;.</td><td></td></tr>
+</table>
+<h3>Directivity (DIR-xxx, 7 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='info'><td>DIR-001</td><td>info</td><td>The source is omnidirectional: no directivity correction is applied (Dc = 0 dB).</td><td></td></tr>
+<tr class='error'><td>DIR-002</td><td>error</td><td>Directional mode needs a correction Dc in all eight bands; missing: {bands} Hz.</td><td>Enter Dc in dB for every band (0 where there is no correction) or switch to Omnidirectional.</td></tr>
+<tr class='warning'><td>DIR-003</td><td>warning</td><td>Directivity correction Dc = {value} dB at {band} Hz is large; check the sign and the unit.</td><td>Dc is added to Lw towards the receivers (positive = louder). Typical values are -10 to +10 dB.</td></tr>
+<tr class='info'><td>DIR-004</td><td>info</td><td>In this version the engine applies one constant Dc per band to every receiver. The heading ({heading} deg) is stored in the scenario but does not change the result.</td><td>An angle-dependent directivity needs a calculation the engine does not have yet.</td></tr>
+<tr class='error'><td>DIR-005</td><td>error</td><td>The source heading {value} is not a number.</td><td>Enter the heading in degrees, 0 to 360.</td></tr>
+<tr class='warning'><td>DIR-006</td><td>warning</td><td>The source heading {value} deg is outside 0 to 360; it is read as {norm:.1f} deg.</td><td>Headings are clockwise from grid north (map up).</td></tr>
+<tr class='warning'><td>DIR-007</td><td>warning</td><td>An angular directivity table was given but the engine cannot use it.</td><td>Remove the table, or use the constant per-band Dc.</td></tr>
+</table>
+<h3>Terrain (DTM) (DTM-xxx, 18 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='info'><td>DTM-001</td><td>info</td><td>No DTM selected: ground is flat at elevation 0 m. Terrain screening and ground elevation are not considered.</td><td>Select a DTM in Terrain and Area to include terrain.</td></tr>
+<tr class='error'><td>DTM-002</td><td>error</td><td>The DTM {path} does not exist or cannot be opened.</td><td>Select the raster again from the list, or browse to it.</td></tr>
+<tr class='error'><td>DTM-003</td><td>error</td><td>The DTM {path} has {bands} bands. A DTM must have one band of elevations.</td><td>Choose a single-band elevation raster (not an image).</td></tr>
+<tr class='error'><td>DTM-004</td><td>error</td><td>The DTM {path} has no coordinate system.</td><td>Define the coordinate system of the raster (Define Projection) before using it.</td></tr>
+<tr class='info'><td>DTM-005</td><td>info</td><td>The DTM is in {dtm_crs} and is projected on the fly to {to_wkid} (bilinear).</td><td></td></tr>
+<tr class='error'><td>DTM-006</td><td>error</td><td>The vertical unit of the DTM is unknown.</td><td>Choose metres or feet for the DTM. Ground elevation in the wrong unit would be off by a factor of 3.28.</td></tr>
+<tr class='info'><td>DTM-007</td><td>info</td><td>The DTM is in {unit}; elevations are multiplied by {factor:.4f} to give metres.</td><td></td></tr>
+<tr class='error'><td>DTM-008</td><td>error</td><td>The source lies outside the DTM coverage.</td><td>Select a DTM that covers the source, or remove the DTM to use flat ground.</td></tr>
+<tr class='error'><td>DTM-009</td><td>error</td><td>The DTM has no data at the source location.</td><td>Fill the NoData cell, or choose a DTM without a hole at the source.</td></tr>
+<tr class='warning'><td>DTM-010</td><td>warning</td><td>The DTM does not cover {pct:.0f} % of the receiver area; receivers there get no result.</td><td>Choose a larger DTM, or reduce the analysis area. Show Coverage displays the gaps.</td></tr>
+<tr class='warning'><td>DTM-011</td><td>warning</td><td>{n} path(s) from the source to the receiver area cross DTM gaps; the terrain along them is unknown.</td><td>Show Coverage marks the gaps. Receivers behind a gap get no result.</td></tr>
+<tr class='error'><td>DTM-012</td><td>error</td><td>The DTM does not cover any part of the receiver area.</td><td>Choose a DTM that overlaps the analysis area.</td></tr>
+<tr class='warning'><td>DTM-013</td><td>warning</td><td>The DTM cell size ({dtm_cell:.1f} m) is coarser than the output cell size ({cell:.1f} m); the output is finer than the terrain data.</td><td>Use Match DTM Resolution, or accept that the terrain is smoothed.</td></tr>
+<tr class='warning'><td>DTM-014</td><td>warning</td><td>Elevations in the DTM range from {zmin:.0f} to {zmax:.0f} m; check the vertical unit and the nodata value.</td><td>Typical values for most sites are -500 to 3000 m.</td></tr>
+<tr class='warning'><td>DTM-015</td><td>warning</td><td>The DTM is huge ({mcells:.0f} million cells in the analysis window); preparing it will be slow.</td><td>Clip the DTM to the site first.</td></tr>
+<tr class='error'><td>DTM-016</td><td>error</td><td>Terrain screening off is not available in this version: the engine always includes terrain diffraction when a DTM is used.</td><td>Keep terrain screening on, or remove the DTM to run with flat ground.</td></tr>
+<tr class='info'><td>DTM-017</td><td>info</td><td>Source ground elevation {ground:.2f} m is read from the DTM cell nearest to the source; the run interpolates bilinearly.</td><td></td></tr>
+<tr class='warning'><td>DTM-018</td><td>warning</td><td>The DTM cell size is {dtm_cell:.1f} m: structures narrower than that are not represented in the terrain, only through their own heights.</td><td></td></tr>
+</table>
+<h3>Receiver area and grid (ARA-xxx, 30 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>ARA-001</td><td>error</td><td>No receiver area is defined.</td><td>Terrain and Area &gt; Set Analysis Area: use polygons, draw one, enter a radius or capture the map extent.</td></tr>
+<tr class='error'><td>ARA-002</td><td>error</td><td>The receiver polygon has no geometry.</td><td>Draw a polygon or choose features that have geometry.</td></tr>
+<tr class='error'><td>ARA-003</td><td>error</td><td>The receiver polygon has fewer than 3 distinct vertices.</td><td>A polygon needs at least three corners.</td></tr>
+<tr class='error'><td>ARA-004</td><td>error</td><td>The receiver polygon crosses itself (near {x:.1f}, {y:.1f}); the inside is ambiguous.</td><td>Edit the vertices so the outline does not cross itself.</td></tr>
+<tr class='error'><td>ARA-005</td><td>error</td><td>The receiver polygon has zero area.</td><td>The corners are on one line; move at least one vertex.</td></tr>
+<tr class='error'><td>ARA-006</td><td>error</td><td>No polygon is selected in {layer}.</td><td>Select the polygons to use, or choose the entire layer.</td></tr>
+<tr class='error'><td>ARA-007</td><td>error</td><td>The layer {layer} contains {shape} features; the receiver area needs polygons.</td><td>Choose a polygon layer or draw the area.</td></tr>
+<tr class='error'><td>ARA-008</td><td>error</td><td>The radius must be a number &gt; 0 m (got {value}).</td><td>Enter the radius in metres, for example 500.</td></tr>
+<tr class='warning'><td>ARA-009</td><td>warning</td><td>A radius of {value} m is large; the area is {area_km2:.1f} km2.</td><td>Calculation time grows with the area; check the unit (metres).</td></tr>
+<tr class='warning'><td>ARA-010</td><td>warning</td><td>The radius ({value} m) is smaller than 10 m; there are very few receiver cells.</td><td>Increase the radius or use a smaller cell size.</td></tr>
+<tr class='error'><td>ARA-011</td><td>error</td><td>The captured map extent is empty or has zero width/height.</td><td>Zoom to the area of interest and capture the extent again.</td></tr>
+<tr class='warning'><td>ARA-012</td><td>warning</td><td>The captured extent is in {wkid}, not the analysis system; it was projected and its edges may not be straight.</td><td></td></tr>
+<tr class='info'><td>ARA-013</td><td>info</td><td>The source lies outside the receiver polygon. Results are produced only inside the polygon; terrain and structures between the source and the polygon still count.</td><td></td></tr>
+<tr class='info'><td>ARA-014</td><td>info</td><td>The circle of radius {value} m follows the source; if the source moves, the area moves with it.</td><td></td></tr>
+<tr class='info'><td>ARA-015</td><td>info</td><td>The captured extent stays fixed when you pan or zoom.</td><td></td></tr>
+<tr class='error'><td>ARA-016</td><td>error</td><td>Receiver cell size must be a number &gt; 0 m (got {value}).</td><td>Enter the output cell size in metres or choose Match DTM Resolution.</td></tr>
+<tr class='error'><td>ARA-017</td><td>error</td><td>Match DTM Resolution needs a DTM, but none is selected.</td><td>Select a DTM or enter a custom cell size.</td></tr>
+<tr class='warning'><td>ARA-018</td><td>warning</td><td>The cell size ({cell:.1f} m) gives only {n} cells across the area; the map will be very coarse.</td><td>Use a smaller cell size.</td></tr>
+<tr class='error'><td>ARA-019</td><td>error</td><td>The area has about {cells:,} receiver cells x {nsrc} source(s); the limit is {limit:,}.</td><td>Use a larger cell size or a smaller area.</td></tr>
+<tr class='warning'><td>ARA-020</td><td>warning</td><td>About {cells:,} receiver cells: detail cells (click-to-read values) are skipped above {limit:,} cells.</td><td>Use a larger cell size if you want to click on cells.</td></tr>
+<tr class='warning'><td>ARA-021</td><td>warning</td><td>Estimated run time about {minutes:.0f} min ({cells:,} cells).</td><td>A larger cell size or a smaller area runs much faster.</td></tr>
+<tr class='error'><td>ARA-022</td><td>error</td><td>Receiver height above local ground must be a number &gt; 0 m (got {value}).</td><td>Enter the receiver height in metres, for example 1.5 or 4.</td></tr>
+<tr class='warning'><td>ARA-023</td><td>warning</td><td>Receiver height {value} m is unusually large.</td><td>It is measured above the terrain at each receiver cell.</td></tr>
+<tr class='info'><td>ARA-024</td><td>info</td><td>Receiver height is measured above the terrain at each receiver cell, not above sea level.</td><td></td></tr>
+<tr class='error'><td>ARA-025</td><td>error</td><td>No receiver cell centre falls inside the polygon at a cell size of {cell:.1f} m.</td><td>Use a smaller cell size or a larger polygon.</td></tr>
+<tr class='warning'><td>ARA-026</td><td>warning</td><td>The receiver polygon extends {pct:.0f} % beyond the DTM; those receivers get no result.</td><td></td></tr>
+<tr class='warning'><td>ARA-027</td><td>warning</td><td>The polygon layer has several polygons; they are combined and cells inside any of them are calculated.</td><td></td></tr>
+<tr class='warning'><td>ARA-028</td><td>warning</td><td>The source is within {dist:.1f} m of a receiver cell; levels very close to a point source are not meaningful.</td><td>ISO 9613-2 is meant for distances of at least a few metres.</td></tr>
+<tr class='warning'><td>ARA-029</td><td>warning</td><td>Receivers closer than 5 m to the source are left empty only at the source cell; nearby cells may show very high levels.</td><td></td></tr>
+<tr class='info'><td>ARA-030</td><td>info</td><td>Receiver cell centres are used; cell size {cell:.1f} m gives {nx} x {ny} = {cells:,} cells.</td><td></td></tr>
+</table>
+<h3>Structures (general) (STR-xxx, 15 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>STR-001</td><td>error</td><td>Two structures share the name &#x27;{name}&#x27;.</td><td>Give each structure a unique name.</td></tr>
+<tr class='error'><td>STR-002</td><td>error</td><td>The structure has no name.</td><td>Give the structure a name so you can find it in the list.</td></tr>
+<tr class='error'><td>STR-003</td><td>error</td><td>&#x27;{name}&#x27; has an unknown type &#x27;{type}&#x27;.</td><td>Structures are Building, Barrier or Enclosure.</td></tr>
+<tr class='info'><td>STR-004</td><td>info</td><td>&#x27;{name}&#x27; is hidden on the map but still takes part in the calculation.</td><td>Participation is the Include in Analysis checkbox; visibility only controls drawing.</td></tr>
+<tr class='info'><td>STR-005</td><td>info</td><td>&#x27;{name}&#x27; is shown on the map but excluded from the calculation.</td><td>Tick Include in Analysis to use it.</td></tr>
+<tr class='info'><td>STR-006</td><td>info</td><td>{n_inc} of {n} structure(s) take part in the run.</td><td></td></tr>
+<tr class='warning'><td>STR-007</td><td>warning</td><td>&#x27;{name}&#x27; refers to a GIS feature that is no longer in {layer}; the geometry saved in the scenario is used.</td><td>Re-link the object to the layer, or keep the saved geometry.</td></tr>
+<tr class='error'><td>STR-008</td><td>error</td><td>&#x27;{name}&#x27; has no geometry.</td><td>Draw it on the map, pick a feature or enter its dimensions.</td></tr>
+<tr class='warning'><td>STR-009</td><td>warning</td><td>&#x27;{name}&#x27; lies outside the DTM and the receiver area; it cannot affect the result.</td><td>Move it or exclude it.</td></tr>
+<tr class='warning'><td>STR-010</td><td>warning</td><td>&#x27;{name}&#x27; does not lie between the source and any receiver; it has no effect on the result.</td><td></td></tr>
+<tr class='info'><td>STR-011</td><td>info</td><td>The GIS feature behind &#x27;{name}&#x27; is not modified; edits are stored in the scenario.</td><td></td></tr>
+<tr class='warning'><td>STR-012</td><td>warning</td><td>Reflections from structures are not available in this version. Only screening (diffraction){extra} is calculated for &#x27;{name}&#x27;.</td><td>ISO 9613-2 cl. 7.5 image sources are not implemented.</td></tr>
+<tr class='error'><td>STR-013</td><td>error</td><td>&#x27;{name}&#x27; has a non-finite coordinate ({x}, {y}).</td><td>Re-draw the object.</td></tr>
+<tr class='warning'><td>STR-014</td><td>warning</td><td>&#x27;{name}&#x27; is more than {limit} vertices long; only {limit} are kept for the run.</td><td></td></tr>
+<tr class='warning'><td>STR-015</td><td>warning</td><td>&#x27;{name}&#x27; is inactive in this run because Include in Analysis is off.</td><td></td></tr>
+</table>
+<h3>Buildings (BLD-xxx, 20 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>BLD-001</td><td>error</td><td>Building &#x27;{name}&#x27; has no footprint.</td><td>Draw a footprint or choose a polygon.</td></tr>
+<tr class='error'><td>BLD-002</td><td>error</td><td>Building &#x27;{name}&#x27; has fewer than 3 distinct vertices.</td><td>A footprint needs at least three corners.</td></tr>
+<tr class='error'><td>BLD-003</td><td>error</td><td>Building &#x27;{name}&#x27;: the footprint crosses itself near {x:.1f}, {y:.1f}.</td><td>Edit the vertices so the outline does not cross itself.</td></tr>
+<tr class='error'><td>BLD-004</td><td>error</td><td>Building &#x27;{name}&#x27;: height above ground is missing.</td><td>Enter a height in metres, or choose the field that holds it.</td></tr>
+<tr class='error'><td>BLD-005</td><td>error</td><td>Building &#x27;{name}&#x27;: height must be a number &gt; 0 m (got {value}).</td><td>Enter the height above ground in metres.</td></tr>
+<tr class='warning'><td>BLD-006</td><td>warning</td><td>Building &#x27;{name}&#x27;: height {value} m is unusual; check the unit.</td><td>Buildings are usually 3 to 150 m.</td></tr>
+<tr class='error'><td>BLD-007</td><td>error</td><td>The height field &#x27;{field}&#x27; in {layer} does not exist.</td><td>Choose one of: {choices}.</td></tr>
+<tr class='error'><td>BLD-008</td><td>error</td><td>The height field &#x27;{field}&#x27; is not numeric (type {ftype}).</td><td>Choose a numeric field (Double, Single, Integer).</td></tr>
+<tr class='warning'><td>BLD-009</td><td>warning</td><td>{n} feature(s) in {layer} have no value in &#x27;{field}&#x27; (OIDs {oids}); they use the default height {default} m.</td><td>Fill the field, or accept the default.</td></tr>
+<tr class='warning'><td>BLD-010</td><td>warning</td><td>The height field &#x27;{field}&#x27; has no unit; values are taken as metres (largest value {vmax}).</td><td>If they are in feet, convert them or tick the feet option.</td></tr>
+<tr class='info'><td>BLD-011</td><td>info</td><td>Imported {n} buildings; heights {hmin:.1f} to {hmax:.1f} m (field &#x27;{field}&#x27;, metres).</td><td></td></tr>
+<tr class='error'><td>BLD-012</td><td>error</td><td>The source lies inside building &#x27;{name}&#x27;.</td><td>Move the source, or model the building as an Enclosure of the source.</td></tr>
+<tr class='info'><td>BLD-013</td><td>info</td><td>Receiver cells inside building footprints are left empty (NoData). {n} cell(s) are affected in this run.</td><td></td></tr>
+<tr class='info'><td>BLD-014</td><td>info</td><td>Receivers inside buildings: {policy}.</td><td></td></tr>
+<tr class='warning'><td>BLD-015</td><td>warning</td><td>{n} building footprints overlap; each is a separate screen. Overlapping footprints are not merged.</td><td></td></tr>
+<tr class='warning'><td>BLD-016</td><td>warning</td><td>Building &#x27;{name}&#x27; has an interior ring (courtyard); holes are ignored and the footprint is treated as solid.</td><td></td></tr>
+<tr class='info'><td>BLD-017</td><td>info</td><td>Building &#x27;{name}&#x27;: the effect in this version is screening only (top and side diffraction). No reflections or facade effects.</td><td></td></tr>
+<tr class='warning'><td>BLD-018</td><td>warning</td><td>Building &#x27;{name}&#x27; is smaller than {minw:.1f} m across; for low frequencies it does not screen (ISO 9613-2:2024 7.4.1).</td><td></td></tr>
+<tr class='error'><td>BLD-019</td><td>error</td><td>Importing {n} buildings would exceed the limit of {limit} structures in one scenario.</td><td>Select fewer buildings or clip them to the area.</td></tr>
+<tr class='warning'><td>BLD-020</td><td>warning</td><td>{n} buildings lie wholly outside the analysis area plus the source; they were skipped.</td><td></td></tr>
+</table>
+<h3>Noise barriers (BAR-xxx, 30 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>BAR-001</td><td>error</td><td>Barrier &#x27;{name}&#x27; has no path.</td><td>Draw it on the map, pick a polyline, or enter start point, length, azimuth and height.</td></tr>
+<tr class='error'><td>BAR-002</td><td>error</td><td>Barrier &#x27;{name}&#x27; needs at least two distinct vertices.</td><td>Add a second point.</td></tr>
+<tr class='error'><td>BAR-003</td><td>error</td><td>Barrier &#x27;{name}&#x27; has zero length.</td><td>Enter a length &gt; 0 m or move the end point.</td></tr>
+<tr class='error'><td>BAR-004</td><td>error</td><td>Barrier &#x27;{name}&#x27;: height is missing.</td><td>Enter the height above ground or the absolute top elevation, in metres.</td></tr>
+<tr class='error'><td>BAR-005</td><td>error</td><td>Barrier &#x27;{name}&#x27;: height must be a number &gt; 0 m (got {value}).</td><td>Enter the height in metres.</td></tr>
+<tr class='warning'><td>BAR-006</td><td>warning</td><td>Barrier &#x27;{name}&#x27;: height {value} m is unusual for a noise barrier (usually 1 to 12 m).</td><td></td></tr>
+<tr class='error'><td>BAR-007</td><td>error</td><td>Barrier &#x27;{name}&#x27;: the vertical definition is &#x27;{mode}&#x27;; use &#x27;relative&#x27; (above local terrain) or &#x27;absolute&#x27; (top elevation).</td><td>Choose one of the two vertical definitions.</td></tr>
+<tr class='error'><td>BAR-008</td><td>error</td><td>Barrier &#x27;{name}&#x27;: the absolute top elevation {top:.2f} m is below the ground ({ground:.2f} m) at {where}.</td><td>Raise the top or use a height above local terrain.</td></tr>
+<tr class='warning'><td>BAR-009</td><td>warning</td><td>Barrier &#x27;{name}&#x27;: at some points the absolute top is only {clear:.2f} m above ground.</td><td>Check the profile preview; a barrier that low barely screens.</td></tr>
+<tr class='warning'><td>BAR-010</td><td>warning</td><td>Barrier &#x27;{name}&#x27;: &#x27;height above local terrain&#x27; becomes a flat top at {top:.2f} m (highest ground under the barrier + {h:.2f} m); the engine uses a flat top per barrier segment.</td><td>Split the barrier into shorter segments on sloping ground if the top should follow the terrain.</td></tr>
+<tr class='error'><td>BAR-011</td><td>error</td><td>Barrier &#x27;{name}&#x27;: start point, length and azimuth are all needed (missing: {missing}).</td><td>Fill the missing fields.</td></tr>
+<tr class='error'><td>BAR-012</td><td>error</td><td>Barrier &#x27;{name}&#x27;: azimuth {value} is not a number.</td><td>Enter the azimuth in degrees clockwise from grid north (map up).</td></tr>
+<tr class='info'><td>BAR-013</td><td>info</td><td>Barrier &#x27;{name}&#x27;: azimuth {az:.1f} deg clockwise from north; end point {x:.2f}, {y:.2f}.</td><td></td></tr>
+<tr class='error'><td>BAR-014</td><td>error</td><td>Barrier &#x27;{name}&#x27;: the layer {layer} contains {shape} features; a barrier needs polylines.</td><td>Choose a polyline layer or draw the barrier.</td></tr>
+<tr class='warning'><td>BAR-015</td><td>warning</td><td>Barrier &#x27;{name}&#x27; passes through or within 1 m of the source.</td><td>Check the geometry; a barrier on top of the source gives unreliable results.</td></tr>
+<tr class='warning'><td>BAR-016</td><td>warning</td><td>Barrier &#x27;{name}&#x27; passes through a building footprint.</td><td>Barrier and building are calculated separately; check that this is intended.</td></tr>
+<tr class='warning'><td>BAR-017</td><td>warning</td><td>Barrier &#x27;{name}&#x27; has {n} segments; each is a separate diffracting wall. Gaps between segments are open.</td><td>Close the gaps in the path if it is meant to be continuous.</td></tr>
+<tr class='warning'><td>BAR-018</td><td>warning</td><td>Barrier &#x27;{name}&#x27; is only {length:.1f} m long; for low frequencies it does not screen (ISO 9613-2:2024 7.4.1).</td><td></td></tr>
+<tr class='info'><td>BAR-019</td><td>info</td><td>Barrier &#x27;{name}&#x27; is calculated as: {kind}.</td><td></td></tr>
+<tr class='error'><td>BAR-020</td><td>error</td><td>Barrier &#x27;{name}&#x27; is not covered by the DTM at {where}; its ground level is unknown.</td><td>Choose a DTM that covers the barrier, or remove the DTM.</td></tr>
+<tr class='warning'><td>BAR-021</td><td>warning</td><td>Barrier &#x27;{name}&#x27; lies outside the DTM along {pct:.0f} % of its length.</td><td></td></tr>
+<tr class='error'><td>BAR-022</td><td>error</td><td>Barrier &#x27;{name}&#x27;: a surface mass or transmission loss is required for transmission, but none is given.</td><td>Enter surface density or octave-band TL, or turn transmission off (diffraction only).</td></tr>
+<tr class='warning'><td>BAR-023</td><td>warning</td><td>Barrier &#x27;{name}&#x27;: surface mass {m:.1f} kg/m2 is below 10 kg/m2; ISO 9613-2:2024 7.4.1 requires at least 10 kg/m2 for a screening object.</td><td>Treat the result as an opaque-screen estimate or use a heavier material.</td></tr>
+<tr class='info'><td>BAR-024</td><td>info</td><td>Barrier &#x27;{name}&#x27; is calculated by diffraction only; no material properties are needed.</td><td></td></tr>
+<tr class='info'><td>BAR-025</td><td>info</td><td>Barrier &#x27;{name}&#x27; is calculated by diffraction plus transmission through the barrier (energy sum; an engineering approximation, not part of ISO 9613-2).</td><td></td></tr>
+<tr class='error'><td>BAR-026</td><td>error</td><td>Barrier &#x27;{name}&#x27;: the barrier is hanging with a gap of {gap} m, which must be &gt;= 0 and below the top.</td><td>Set the bottom gap to 0 for a barrier that reaches the ground.</td></tr>
+<tr class='warning'><td>BAR-027</td><td>warning</td><td>Barrier &#x27;{name}&#x27; has been moved or edited; its GIS source feature is unchanged.</td><td></td></tr>
+<tr class='error'><td>BAR-028</td><td>error</td><td>Barrier &#x27;{name}&#x27;: length {value} is not a number &gt; 0 m.</td><td>Enter the length in metres.</td></tr>
+<tr class='warning'><td>BAR-029</td><td>warning</td><td>Barrier &#x27;{name}&#x27; is closer than 1 m to the receiver area; cells next to it are strongly affected.</td><td></td></tr>
+<tr class='warning'><td>BAR-030</td><td>warning</td><td>Barrier &#x27;{name}&#x27; does not block the line of sight to any receiver.</td><td>It has no effect on this scenario; check its position and height.</td></tr>
+</table>
+<h3>Enclosures (ENC-xxx, 35 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>ENC-001</td><td>error</td><td>Enclosure &#x27;{name}&#x27; is not linked to a source.</td><td>Select the source it encloses.</td></tr>
+<tr class='error'><td>ENC-002</td><td>error</td><td>Enclosure &#x27;{name}&#x27; has no footprint.</td><td>Use the quick rectangle (length, width, height, orientation) or draw a polygon.</td></tr>
+<tr class='error'><td>ENC-003</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: length, width and height must all be numbers &gt; 0 m (length {l}, width {w}, height {h}).</td><td>Enter the three dimensions in metres.</td></tr>
+<tr class='error'><td>ENC-004</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the source is outside the enclosure footprint ({dx:.2f} m from the nearest wall).</td><td>Move the enclosure so the source is inside it, or move the source.</td></tr>
+<tr class='error'><td>ENC-005</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the source height {hs:.2f} m is above the roof ({h:.2f} m).</td><td>Raise the roof or lower the source.</td></tr>
+<tr class='warning'><td>ENC-006</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;: the source is only {dist:.2f} m from a wall; the diffuse-field model needs the source to be well inside.</td><td>Use a larger enclosure or take the result as indicative.</td></tr>
+<tr class='error'><td>ENC-007</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the roof has no material.</td><td>Assign a material to the roof (it can be the same as the walls).</td></tr>
+<tr class='error'><td>ENC-008</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: wall {wall} has no material.</td><td>Assign a material, or use one material for all walls.</td></tr>
+<tr class='error'><td>ENC-009</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: TL is missing at {bands} Hz.</td><td>Enter TL for every octave band, or switch the face to Mass Law.</td></tr>
+<tr class='error'><td>ENC-010</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: absorption coefficient alpha is missing at {bands} Hz. It is needed for the interior sound level.</td><td>Enter alpha (0 to 1) for every band; the enclosure model cannot run without interior absorption.</td></tr>
+<tr class='error'><td>ENC-011</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: alpha at {band} Hz is {value}; it must be between 0 and 1. It is a coefficient, not a dB value.</td><td>Enter a value such as 0.1 (reflective) to 0.9 (highly absorbing).</td></tr>
+<tr class='error'><td>ENC-012</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: TL at {band} Hz is {value} dB; it cannot be negative.</td><td>Enter the transmission loss as a positive dB value.</td></tr>
+<tr class='warning'><td>ENC-013</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;, {face}: TL at {band} Hz is {value} dB, which is higher than a single panel normally achieves.</td><td>Check the unit; typical single panels give 10 to 60 dB.</td></tr>
+<tr class='error'><td>ENC-014</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: Mass Law needs a surface density (kg/m2) or a thickness and a volumetric density (kg/m3).</td><td>Enter one of the two.</td></tr>
+<tr class='error'><td>ENC-015</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: the surface density must be a number &gt; 0 kg/m2 (got {value}).</td><td>Enter the mass per square metre of the panel.</td></tr>
+<tr class='error'><td>ENC-016</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: thickness and volumetric density must both be &gt; 0 (thickness {t}, density {rho}).</td><td>Enter both, in metres and kg/m3.</td></tr>
+<tr class='error'><td>ENC-017</td><td>error</td><td>Enclosure &#x27;{name}&#x27;, {face}: thickness x density is only the surface mass of a homogeneous solid layer.</td><td>For fabrics, composites or cavity panels enter the surface density directly.</td></tr>
+<tr class='warning'><td>ENC-018</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;, {face}: the mass-law TL is an estimate, not a measurement; it can overestimate near coincidence and below the panel resonance.</td><td>Use manufacturer octave-band TL where you have it.</td></tr>
+<tr class='warning'><td>ENC-019</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;, {face}: surface mass {m:.1f} kg/m2 is very light for an acoustic enclosure panel.</td><td></td></tr>
+<tr class='error'><td>ENC-020</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the opening area {open} m2 is larger than the total surface {total:.1f} m2.</td><td>Reduce the opening area.</td></tr>
+<tr class='warning'><td>ENC-021</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;: openings of {open:.2f} m2 limit the achievable reduction to {limit:.1f} dB.</td><td>Close or attenuate the openings (silencers) to get more reduction.</td></tr>
+<tr class='warning'><td>ENC-022</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;: in {bands} Hz the radiated power would exceed the source power; the diffuse-field model does not apply there.</td><td>Increase the interior absorption (alpha) or the area of absorptive surfaces.</td></tr>
+<tr class='info'><td>ENC-023</td><td>info</td><td>Enclosure &#x27;{name}&#x27; is applied once, as a reduction of the radiated sound power (diffuse-field model, EN ISO 15667 style). It is not also treated as a barrier.</td><td></td></tr>
+<tr class='warning'><td>ENC-024</td><td>warning</td><td>Enclosure &#x27;{name}&#x27; is excluded from the analysis: the source radiates its bare power.</td><td>Tick Include in Analysis to apply it.</td></tr>
+<tr class='info'><td>ENC-025</td><td>info</td><td>Enclosure &#x27;{name}&#x27;: {s_total:.1f} m2 of radiating surface, {a_in:.1f} m2 of interior absorption (broadband mean).</td><td></td></tr>
+<tr class='error'><td>ENC-026</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the orientation {value} is not a number.</td><td>Enter the orientation in degrees clockwise from grid north.</td></tr>
+<tr class='error'><td>ENC-027</td><td>error</td><td>Source &#x27;{name}&#x27; already has an enclosure; only one enclosure per source is supported.</td><td>Remove or merge the enclosures.</td></tr>
+<tr class='warning'><td>ENC-028</td><td>warning</td><td>Enclosure &#x27;{name}&#x27;: the data of face {face} is estimated (mass law); the rest is measured.</td><td>The result mixes measured and estimated values.</td></tr>
+<tr class='warning'><td>ENC-029</td><td>warning</td><td>Enclosure &#x27;{name}&#x27; extends outside the analysis area; receiver cells inside it are left empty.</td><td></td></tr>
+<tr class='info'><td>ENC-030</td><td>info</td><td>The floor is treated as ground: it does not radiate and does not absorb in this model.</td><td></td></tr>
+<tr class='error'><td>ENC-031</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: placement offset ({dx}, {dy}) is not a pair of numbers.</td><td>Enter the offset of the enclosure centre relative to the source in metres.</td></tr>
+<tr class='warning'><td>ENC-032</td><td>warning</td><td>Enclosure &#x27;{name}&#x27; contains no walls with area; check the dimensions.</td><td></td></tr>
+<tr class='error'><td>ENC-033</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the footprint polygon crosses itself near {x:.1f}, {y:.1f}.</td><td>Edit the vertices.</td></tr>
+<tr class='error'><td>ENC-034</td><td>error</td><td>Enclosure &#x27;{name}&#x27;: the roof height above ground must be &gt; 0 (got {h}).</td><td>Enter the enclosure height in metres.</td></tr>
+<tr class='info'><td>ENC-035</td><td>info</td><td>TL and alpha: the panel TL (dB) is the loss through a panel; alpha (0 to 1) is the absorption of its interior face. They are used separately.</td><td></td></tr>
+</table>
+<h3>Propagation settings (PRP-xxx, 22 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>PRP-001</td><td>error</td><td>The ground factor G must be between 0 (hard) and 1 (porous); got {value}.</td><td>Use 0 for water, concrete or asphalt; 1 for grass, soil or fields.</td></tr>
+<tr class='error'><td>PRP-002</td><td>error</td><td>The ground factor {which} is missing.</td><td>Enter a value from 0 to 1 or switch back to a single uniform G.</td></tr>
+<tr class='info'><td>PRP-003</td><td>info</td><td>Uniform ground G = {value:.2f} is used for the source, middle and receiver regions.</td><td></td></tr>
+<tr class='warning'><td>PRP-004</td><td>warning</td><td>Ground: separate source/middle/receiver factors are used (Gs {gs}, Gm {gm}, Gr {gr}).</td><td>Check that the three regions match the site.</td></tr>
+<tr class='error'><td>PRP-005</td><td>error</td><td>Temperature {value} deg C is outside the supported range of -40 to 50 deg C.</td><td>Enter the air temperature in degrees Celsius.</td></tr>
+<tr class='error'><td>PRP-006</td><td>error</td><td>Relative humidity must be above 0 and at most 100 %; got {value}.</td><td>Enter a percentage, for example 70.</td></tr>
+<tr class='error'><td>PRP-007</td><td>error</td><td>Atmospheric pressure must be a number &gt; 0 kPa (got {value}).</td><td>Standard pressure is 101.325 kPa.</td></tr>
+<tr class='warning'><td>PRP-008</td><td>warning</td><td>Atmospheric pressure {value} kPa is far from normal (80 to 110 kPa); check the unit (kPa, not hPa or Pa).</td><td></td></tr>
+<tr class='warning'><td>PRP-009</td><td>warning</td><td>The air is very dry ({value} % RH); absorption at high frequencies is at its maximum.</td><td></td></tr>
+<tr class='error'><td>PRP-010</td><td>error</td><td>The prediction mode &#x27;{value}&#x27; is not one of iso2024, draft2026, iso1996.</td><td>Choose a mode from the list.</td></tr>
+<tr class='info'><td>PRP-011</td><td>info</td><td>Prediction mode {mode}: {desc}.</td><td></td></tr>
+<tr class='warning'><td>PRP-012</td><td>warning</td><td>The mode draft2026 follows a draft amendment and is not a published edition.</td><td>Use iso2024 for results that must refer to a published edition.</td></tr>
+<tr class='warning'><td>PRP-013</td><td>warning</td><td>The mode iso1996 is the superseded 1996 edition; atmospheric pressure is not used in it.</td><td>Use iso2024 unless you must reproduce an older calculation.</td></tr>
+<tr class='info'><td>PRP-014</td><td>info</td><td>Meteorology: favourable propagation (downwind or temperature inversion); no meteorological correction is applied.</td><td></td></tr>
+<tr class='error'><td>PRP-015</td><td>error</td><td>Long-term average meteorology needs the correction constant C0 (dB); it is empty.</td><td>Enter C0 (0 to about 5 dB) from local wind and temperature-gradient statistics, or choose Favourable.</td></tr>
+<tr class='error'><td>PRP-016</td><td>error</td><td>C0 must be a number &gt;= 0 dB (got {value}).</td><td>Enter C0 in dB, typically 0 to 5.</td></tr>
+<tr class='warning'><td>PRP-017</td><td>warning</td><td>C0 = {value} dB is above the practical range of 0 to about 5 dB given by the standard.</td><td></td></tr>
+<tr class='info'><td>PRP-018</td><td>info</td><td>Long-term level: C_met is subtracted from the A-weighted levels with C0 = {value} dB (zero for short distances). Unweighted band levels are not corrected.</td><td></td></tr>
+<tr class='warning'><td>PRP-019</td><td>warning</td><td>C0 is set but the method is &#x27;favourable&#x27;; C0 is ignored.</td><td>Choose Long-term average to apply C0.</td></tr>
+<tr class='info'><td>PRP-020</td><td>info</td><td>Active effects: {effects}.</td><td></td></tr>
+<tr class='info'><td>PRP-021</td><td>info</td><td>Where terrain and structures obstruct the same path the engine takes the highest obstruction once; attenuations are not added twice.</td><td></td></tr>
+<tr class='warning'><td>PRP-022</td><td>warning</td><td>A mapped ground classification was given but the engine cannot use it.</td><td>Use uniform G or separate source/middle/receiver factors.</td></tr>
+</table>
+<h3>Outputs (OUT-xxx, 19 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>OUT-001</td><td>error</td><td>No output geodatabase has been chosen.</td><td>Choose a file geodatabase (.gdb) in Outputs.</td></tr>
+<tr class='error'><td>OUT-002</td><td>error</td><td>The output geodatabase does not exist: {path}</td><td>Choose an existing .gdb or create one in Catalog.</td></tr>
+<tr class='error'><td>OUT-003</td><td>error</td><td>{path} is not a file geodatabase (it must end in .gdb).</td><td>Choose a .gdb; rasters cannot be saved into a plain folder here.</td></tr>
+<tr class='error'><td>OUT-004</td><td>error</td><td>The output geodatabase {path} is not writable ({detail}).</td><td>Close other programs using it, check the folder permissions, or choose another geodatabase.</td></tr>
+<tr class='error'><td>OUT-005</td><td>error</td><td>The run name is empty.</td><td>Type a run name; it prefixes every output dataset.</td></tr>
+<tr class='warning'><td>OUT-006</td><td>warning</td><td>The run name &#x27;{name}&#x27; contains characters that are not allowed in dataset names; it becomes &#x27;{valid}&#x27;.</td><td></td></tr>
+<tr class='info'><td>OUT-007</td><td>info</td><td>A run named &#x27;{name}&#x27; already exists; the new outputs are named &#x27;{unique}&#x27;.</td><td>Earlier results are never overwritten.</td></tr>
+<tr class='error'><td>OUT-008</td><td>error</td><td>No output is selected.</td><td>Tick at least one of: overall A-weighted LAeq, unweighted sum, octave-band rasters.</td></tr>
+<tr class='error'><td>OUT-009</td><td>error</td><td>&#x27;{value}&#x27; is not an octave band (63, 125, 250, 500, 1000, 2000, 4000, 8000).</td><td>Choose bands from the list.</td></tr>
+<tr class='info'><td>OUT-010</td><td>info</td><td>Only the selected bands are saved as rasters; all eight bands are always used for the overall levels.</td><td></td></tr>
+<tr class='info'><td>OUT-011</td><td>info</td><td>Datasets that will be created: {names}.</td><td></td></tr>
+<tr class='error'><td>OUT-012</td><td>error</td><td>The shared colour scale is invalid (minimum {vmin} is not below maximum {vmax}).</td><td>Enter a minimum smaller than the maximum, in dB.</td></tr>
+<tr class='warning'><td>OUT-013</td><td>warning</td><td>The computed levels ({lmin:.0f} to {lmax:.0f} dB) fall partly outside the shared colour scale ({vmin:.0f} to {vmax:.0f} dB).</td><td>Cells outside the scale take the end colours.</td></tr>
+<tr class='error'><td>OUT-014</td><td>error</td><td>The overall limit must be a number (got {value}).</td><td>Enter the allowed level in dB(A).</td></tr>
+<tr class='warning'><td>OUT-015</td><td>warning</td><td>No map is open; results are saved in the geodatabase and not added to Contents.</td><td>Open a map and run again to see them.</td></tr>
+<tr class='info'><td>OUT-016</td><td>info</td><td>Receivers inside building footprints: left empty (NoData).</td><td></td></tr>
+<tr class='error'><td>OUT-017</td><td>error</td><td>The scenario snapshot could not be saved ({detail}).</td><td>Check that the output folder is writable.</td></tr>
+<tr class='warning'><td>OUT-018</td><td>warning</td><td>The output geodatabase is inside a synchronised folder ({detail}); sync can lock rasters while they are written.</td><td>Use a local geodatabase if saving fails.</td></tr>
+<tr class='warning'><td>OUT-019</td><td>warning</td><td>The output name &#x27;{name}&#x27; is longer than 50 characters; it was shortened.</td><td></td></tr>
+</table>
+<h3>Engine and run (ENG-xxx, 15 entries)</h3><table class='cat'><tr><th>Code</th><th>Type</th><th>Message</th><th>What to do</th></tr>
+<tr class='error'><td>ENG-001</td><td>error</td><td>The Python 3.10 environment for MATLAB was not found ({path}).</td><td>Run setup\setup_noisebox.ps1, or set NOISEBOX_PY310. See Check MATLAB Link.</td></tr>
+<tr class='error'><td>ENG-002</td><td>error</td><td>The MATLAB Engine for Python is not installed in {path}.</td><td>Run setup\setup_noisebox.ps1 again with -MatlabRoot pointing to your MATLAB.</td></tr>
+<tr class='error'><td>ENG-003</td><td>error</td><td>The MATLAB core folder is missing: {path}</td><td>Restore the matlab\core folder, or set NOISEBOX_CORE_DIR.</td></tr>
+<tr class='warning'><td>ENG-004</td><td>warning</td><td>The .m files MATLAB loaded differ from those on disk; results may use an older version of the core.</td><td>Close other MATLAB sessions and run again.</td></tr>
+<tr class='error'><td>ENG-005</td><td>error</td><td>MATLAB stopped before it finished ({detail}).</td><td>Check MATLAB has a licence and is not open elsewhere; run Check MATLAB Link.</td></tr>
+<tr class='error'><td>ENG-006</td><td>error</td><td>The run was cancelled.</td><td>Run again when ready; nothing was written.</td></tr>
+<tr class='error'><td>ENG-007</td><td>error</td><td>No receiver cell has a valid result. Typical reasons: the polygon lies outside the DTM, all cells are inside buildings, or the source coincides with a cell.</td><td>Check coverage in Preview.</td></tr>
+<tr class='warning'><td>ENG-008</td><td>warning</td><td>{pct:.0f} % of the receiver cells have no result (outside the DTM, inside a structure, or at the source).</td><td>Show Coverage and the structure footprints explain the gaps.</td></tr>
+<tr class='error'><td>ENG-009</td><td>error</td><td>The core rejected the input: {detail}</td><td>Correct the value named in the message.</td></tr>
+<tr class='warning'><td>ENG-010</td><td>warning</td><td>MATLAB takes 10 to 80 s to start; the run begins after that.</td><td></td></tr>
+<tr class='info'><td>ENG-011</td><td>info</td><td>Calculated with MATLAB {matlab}, core files {nfiles}, mode {mode}.</td><td></td></tr>
+<tr class='error'><td>ENG-012</td><td>error</td><td>The glue script worker\matlab_glue\nb_job.m is missing ({path}).</td><td>Restore the worker folder.</td></tr>
+<tr class='error'><td>ENG-013</td><td>error</td><td>The worker could not write to the temporary folder ({detail}).</td><td>Free disk space or set TEMP to a writable folder.</td></tr>
+<tr class='warning'><td>ENG-014</td><td>warning</td><td>The enclosure model reports that it does not apply in {bands} Hz for source &#x27;{name}&#x27;.</td><td>Increase the interior absorption.</td></tr>
+<tr class='error'><td>ENG-015</td><td>error</td><td>ArcGIS Pro&#x27;s Python (arcpy) is not available; the analysis cannot read GIS data.</td><td>Run the add-in from ArcGIS Pro, or use propy.</td></tr>
+</table>
+
+<h2 class="pb">Appendix B: scenario file and command line</h2>
+<p>The scenario is plain JSON, schema <code>noisebox.scenario/1</code>; the add-in and the tools read and write the same file. Main parts: <code>source</code> (location, height, spectrum, directivity), <code>terrain</code>, <code>area</code>, <code>structures</code> (buildings, barriers, enclosures, each with <code>include</code> and <code>visible</code>), <code>propagation</code>, <code>outputs</code>.</p>
+<pre>propy noisebox_cli.py new   my.nbscenario.json --name "Drill rig"
+propy noisebox_cli.py validate my.nbscenario.json          (--fast: no GIS data)
+propy noisebox_cli.py preview  my.nbscenario.json          (issues, grid, DTM coverage, faces)
+propy noisebox_cli.py run      my.nbscenario.json          (needs the output .gdb)
+propy noisebox_cli.py snapshot &lt;gdb&gt; &lt;run&gt; --to earlier.json
+propy noisebox_cli.py parse-spectrum --text "92 96 98 97 94 90 85 78"
+propy noisebox_cli.py dtm-info &lt;raster&gt;     |  crs 2039  |  suggest-crs 34.78 32.08</pre>
+<p>In ArcGIS Pro the same run is available as the tool <b>NoiseBox &gt; 5. Add-in &gt; Run Scenario</b> (one parameter: the scenario file), which adds the grouped, styled results to the open map. The original tools (Noise Map, Noise at Receivers, Compare Noise Maps, Create Input Layers, Check MATLAB Link) are unchanged.</p>
+</body></html>

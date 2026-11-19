@@ -1,0 +1,445 @@
+<UserControl x:Class="NoiseBoxAddin.UI.NoiseBoxPaneView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:extensions="clr-namespace:ArcGIS.Desktop.Extensions;assembly=ArcGIS.Desktop.Extensions"
+             xmlns:ui="clr-namespace:NoiseBoxAddin.UI"
+             MinWidth="300">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <extensions:DesignOnlyResourceDictionary Source="pack://application:,,,/ArcGIS.Desktop.Framework;component\Themes\Default.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <Style x:Key="Lbl" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,4,0,1" />
+        <Setter Property="Foreground" Value="{DynamicResource Esri_TextStyleDefaultBrush}" />
+      </Style>
+      <Style x:Key="Hint" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="Gray" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,2,0,2" />
+      </Style>
+      <Style TargetType="Button">
+        <Setter Property="Margin" Value="0,3,4,3" />
+        <Setter Property="Padding" Value="8,2" />
+      </Style>
+      <Style TargetType="TextBox">
+        <Setter Property="Margin" Value="0,1" />
+      </Style>
+      <Style x:Key="SectionSummary" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="Gray" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+      </Style>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="6">
+
+        <!-- ================= Scenario ================= -->
+        <Expander IsExpanded="{Binding OpenScenario, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Scenario" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding ScenarioSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Lbl}" Text="Name" />
+            <TextBox x:Name="f_name" Text="{Binding Fields[name].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Hint}" Text="The scenario file stores everything; the GIS layers it refers to are never changed." />
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Source ================= -->
+        <Expander IsExpanded="{Binding OpenSource, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Source" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding SourceSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Lbl}" Text="Source name" />
+            <TextBox x:Name="f_sname_src" Text="{Binding Fields[sname].Text, UpdateSourceTrigger=LostFocus}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Location: from layer" />
+            <ComboBox ItemsSource="{Binding PointLayers}" SelectedItem="{Binding SelectedPointLayer}" DisplayMemberPath="Name" />
+            <StackPanel Orientation="Horizontal" Margin="0,3">
+              <RadioButton Content="Selected feature" IsChecked="{Binding UseSelectedFeature, Mode=TwoWay}" Margin="0,0,10,0" />
+              <RadioButton Content="By name or ID" x:Name="rbKey" />
+            </StackPanel>
+            <TextBox Text="{Binding KeyText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsChecked, ElementName=rbKey}" />
+            <Button Content="Use this layer point" Command="{Binding FindSourceCommand}" HorizontalAlignment="Left" />
+            <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MaxHeight="90" Visibility="{Binding Candidates.Count, Converter={x:Static ui:Inverse.CountVisibility}}" />
+            <Button Content="Use the highlighted point" Command="{Binding UseCandidateCommand}" HorizontalAlignment="Left" Visibility="{Binding Candidates.Count, Converter={x:Static ui:Inverse.CountVisibility}}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Location: coordinates" />
+            <StackPanel Visibility="{Binding ShowCoordinateFields, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBlock Style="{StaticResource Lbl}" Text="Coordinate system (EPSG code)" />
+              <ComboBox IsEditable="True" ItemsSource="{Binding CommonSystems}" Text="{Binding CoordWkid, UpdateSourceTrigger=LostFocus}" />
+              <TextBlock Style="{StaticResource Lbl}" Text="{Binding CoordLabelX}" />
+              <TextBox x:Name="f_coordX" Text="{Binding CoordX, UpdateSourceTrigger=LostFocus}" />
+              <TextBlock Style="{StaticResource Lbl}" Text="{Binding CoordLabelY}" />
+              <TextBox x:Name="f_coordY" Text="{Binding CoordY, UpdateSourceTrigger=LostFocus}" />
+              <TextBlock Style="{StaticResource Hint}" Text="{Binding CoordHint}" />
+              <Button Content="Set source" Command="{Binding ApplyCoordinatesCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding AnalysisCoordText}" />
+
+            <TextBlock Style="{StaticResource Lbl}" Text="Source height above ground (m)" />
+            <TextBox x:Name="f_height" Text="{Binding Fields[height].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding ElevationText}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Spectrum: sound power level Lw (dB re 1 pW)" />
+            <DataGrid x:Name="f_lw" ItemsSource="{Binding LwRows}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="230" PreviewKeyDown="Lw_PreviewKeyDown">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Hz" Binding="{Binding Hz}" IsReadOnly="True" Width="60" />
+                <DataGridTextColumn Header="Lw (dB)" Binding="{Binding Text, UpdateSourceTrigger=LostFocus}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <ui:SpectrumPlot Rows="{Binding LwRows}" Version="{Binding SpectrumVersion}" Height="70" Margin="0,4" />
+            <WrapPanel>
+              <Button Content="Paste" Command="{Binding PasteSpectrumCommand}" ToolTip="Paste a row or column from Excel or MATLAB (8 numbers, or frequency + level)" />
+              <Button Content="Import CSV..." Command="{Binding ImportCsvCommand}" />
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal">
+              <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" MinWidth="110" IsEditable="True" Text="{Binding ProfileName, UpdateSourceTrigger=LostFocus}" />
+              <Button Content="Load" Command="{Binding LoadProfileCommand}" Margin="4,0,0,0" />
+              <Button Content="Save profile" Command="{Binding SaveProfileCommand}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="Empty means missing (not 0 dB). Missing bands stop the run and are named in the issue list." />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Directivity" />
+            <StackPanel Orientation="Horizontal">
+              <RadioButton Content="Omnidirectional" IsChecked="{Binding DirectionalMode, Converter={x:Static ui:Inverse.Bool}}" Margin="0,0,10,0" />
+              <RadioButton Content="Directional" IsChecked="{Binding DirectionalMode, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Visibility="{Binding DirectionalMode, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBlock Style="{StaticResource Hint}" Text="Correction Dc in dB added to Lw towards the receivers (positive = louder). This engine applies one Dc per band to all directions; an angular table is not supported yet." />
+              <DataGrid ItemsSource="{Binding DcRows}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="230">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Hz" Binding="{Binding Hz}" IsReadOnly="True" Width="60" />
+                  <DataGridTextColumn Header="Dc (dB)" Binding="{Binding Text, UpdateSourceTrigger=LostFocus}" Width="*" />
+                </DataGrid.Columns>
+              </DataGrid>
+              <TextBlock Style="{StaticResource Lbl}" Text="Source heading (degrees)" />
+              <TextBox x:Name="f_heading" Text="{Binding Fields[heading].Text, UpdateSourceTrigger=LostFocus}" />
+              <TextBlock Style="{StaticResource Hint}" Text="0° = map north (up), measured clockwise: 90° = east. Use the Rotate Heading tool to click a direction on the map. Stored with the profile; not used by the engine yet." />
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Terrain and Area ================= -->
+        <Expander IsExpanded="{Binding OpenTerrain, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Terrain and Area" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding TerrainSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="DTM (terrain)" />
+            <ComboBox x:Name="f_dtm" ItemsSource="{Binding RasterLayers}" SelectedItem="{Binding SelectedRaster}" DisplayMemberPath="Name" />
+            <WrapPanel>
+              <Button Content="Use this raster" Command="{Binding UseRasterCommand}" />
+              <Button Content="Browse..." Command="{Binding BrowseDtmCommand}" />
+              <Button Content="Show Coverage" Command="{Binding ShowCoverageCommand}" />
+              <Button Content="Refresh lists" Command="{Binding RefreshListsCommand}" />
+            </WrapPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding DtmInfoText}" />
+            <StackPanel Visibility="{Binding NeedVerticalUnit, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBlock Style="{StaticResource Lbl}" Foreground="DarkRed" Text="The vertical unit of this DTM is unknown. Choose it:" />
+              <ComboBox x:Name="f_vunit" ItemsSource="{Binding VerticalUnits}" SelectedItem="{Binding VerticalUnit}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding CoverageText}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Receiver area" />
+            <TextBlock x:Name="f_area" Text="{Binding AreaModeText}" Margin="0,1" />
+            <TextBlock Style="{StaticResource Hint}" Text="Results are produced only inside it. The source may be outside; terrain and structures in between still count." />
+            <ComboBox ItemsSource="{Binding PolygonLayers}" SelectedItem="{Binding SelectedPolygonLayer}" DisplayMemberPath="Name" />
+            <StackPanel Orientation="Horizontal" Margin="0,3">
+              <RadioButton Content="Selected polygons" IsChecked="{Binding UseSelectedPolygons, Mode=TwoWay}" Margin="0,0,10,0" />
+              <RadioButton Content="Entire layer" />
+            </StackPanel>
+            <WrapPanel>
+              <Button Content="Use polygons" Command="{Binding UsePolygonsCommand}" />
+              <Button Content="Capture map extent" Command="{Binding CaptureExtentCommand}" />
+            </WrapPanel>
+            <TextBlock Style="{StaticResource Lbl}" Text="Radius around the source (m)" />
+            <StackPanel Orientation="Horizontal">
+              <TextBox x:Name="f_radius" Width="90" Text="{Binding Fields[radius].Text, UpdateSourceTrigger=LostFocus}" />
+              <Button Content="Use radius" Command="{Binding UseRadiusCommand}" Margin="6,0,0,0" />
+            </StackPanel>
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Receiver grid" />
+            <StackPanel Orientation="Horizontal">
+              <RadioButton Content="Match DTM resolution" IsChecked="{Binding UseMatchDtm, Mode=TwoWay}" Margin="0,0,10,0" />
+              <RadioButton Content="Custom" IsChecked="{Binding UseMatchDtm, Converter={x:Static ui:Inverse.Bool}}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Lbl}" Text="Output cell size (m)" />
+            <TextBox x:Name="f_cell" Text="{Binding Fields[cell].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding GridText}" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Receiver height above local ground (m)" />
+            <TextBox x:Name="f_rh" Text="{Binding Fields[rh].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Hint}" Text="Applied above the terrain at each receiver cell, not above sea level." />
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Structures ================= -->
+        <Expander IsExpanded="{Binding OpenStructures, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Structures" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding StructuresSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" MaxHeight="150">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                      <CheckBox IsChecked="{Binding Include}" ToolTip="Include in Analysis: the engine uses this object" Margin="0,0,6,0" />
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,6,0" />
+                      <TextBlock Text="{Binding Type}" Foreground="Gray" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                      <CheckBox Content="Drawn on map" IsChecked="{Binding Visible}" Margin="0,0,8,0" />
+                      <TextBlock Text="{Binding State}" Foreground="Gray" />
+                    </StackPanel>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <WrapPanel>
+              <Button Content="Edit" Command="{Binding EditStructureCommand}" />
+              <Button Content="Duplicate" Command="{Binding DuplicateStructureCommand}" />
+              <Button Content="Zoom To" Command="{Binding ZoomCommand}" />
+              <Button Content="Remove from Scenario" Command="{Binding RemoveStructureCommand}" ToolTip="Removes it from the scenario only; the GIS feature is not changed" />
+            </WrapPanel>
+
+            <StackPanel Visibility="{Binding HasSelection, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBlock Style="{StaticResource Lbl}" Text="Name" />
+              <TextBox x:Name="f_sname" Text="{Binding SF[sname].Text, UpdateSourceTrigger=LostFocus}" />
+
+              <!-- building -->
+              <StackPanel Visibility="{Binding IsBuilding, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                <TextBlock Style="{StaticResource Lbl}" Text="Height above ground (m)" />
+                <TextBox Text="{Binding SF[bheight].Text, UpdateSourceTrigger=LostFocus}" />
+                <TextBlock Style="{StaticResource Hint}" Text="Effect in this version: screening (diffraction over the top and around the sides). No reflections. Receiver cells inside the footprint are left empty (NoData)." />
+              </StackPanel>
+
+              <!-- barrier -->
+              <StackPanel Visibility="{Binding IsBarrier, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                <StackPanel Visibility="{Binding IsStraightBarrier, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                  <TextBlock Style="{StaticResource Lbl}" Text="Start point X / Y (analysis coordinates, m)" />
+                  <StackPanel Orientation="Horizontal">
+                    <TextBox Width="110" Text="{Binding SF[pstartx].Text, UpdateSourceTrigger=LostFocus}" />
+                    <TextBox Width="110" Margin="6,1,0,1" Text="{Binding SF[pstarty].Text, UpdateSourceTrigger=LostFocus}" />
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource Lbl}" Text="Length (m)" />
+                  <TextBox Text="{Binding SF[plen].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBlock Style="{StaticResource Lbl}" Text="Azimuth (degrees clockwise from north)" />
+                  <TextBox Text="{Binding SF[paz].Text, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Lbl}" Text="Vertical definition" />
+                <RadioButton Content="Constant height above local terrain" IsChecked="{Binding BarrierRelative, Mode=TwoWay}" />
+                <RadioButton Content="Fixed absolute top elevation" IsChecked="{Binding BarrierRelative, Converter={x:Static ui:Inverse.Bool}}" />
+                <TextBlock Style="{StaticResource Lbl}" Text="{Binding VerticalLabel}" />
+                <TextBox Text="{Binding SF[vvalue].Text, UpdateSourceTrigger=LostFocus}" />
+                <TextBlock Style="{StaticResource Lbl}" Text="Gap under the barrier (m, 0 = reaches the ground)" />
+                <TextBox Text="{Binding SF[gap].Text, UpdateSourceTrigger=LostFocus}" />
+                <CheckBox Content="Also calculate transmission through the barrier (needs material data)" IsChecked="{Binding TransmissionEnabled, Mode=TwoWay}" Margin="0,6,0,2" />
+                <TextBlock Style="{StaticResource Hint}" Text="Unchecked: diffraction only (ISO 9613-2). Checked: diffraction plus transmission, an engineering approximation that is not part of ISO 9613-2." />
+                <Button Content="Profile preview" Command="{Binding ProfilePreviewCommand}" HorizontalAlignment="Left" />
+                <ui:ProfilePlot Data="{Binding ProfileData}" Height="90" />
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding ProfileNote}" />
+              </StackPanel>
+
+              <!-- enclosure -->
+              <StackPanel Visibility="{Binding IsEnclosure, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                <TextBlock Style="{StaticResource Hint}" Text="Linked to the source. Applied once, as a reduction of the radiated sound power (diffuse-field model); it is not also treated as a barrier. The floor is ground." />
+                <TextBlock Style="{StaticResource Lbl}" Text="Length / width / height (m)" />
+                <StackPanel Orientation="Horizontal">
+                  <TextBox Width="70" Text="{Binding SF[elen].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBox Width="70" Margin="6,1,0,1" Text="{Binding SF[ewid].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBox Width="70" Margin="6,1,0,1" Text="{Binding SF[ehei].Text, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Lbl}" Text="Orientation (degrees clockwise from north) / offset from the source X, Y (m)" />
+                <StackPanel Orientation="Horizontal">
+                  <TextBox Width="70" Text="{Binding SF[eori].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBox Width="70" Margin="6,1,0,1" Text="{Binding SF[eox].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBox Width="70" Margin="6,1,0,1" Text="{Binding SF[eoy].Text, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Lbl}" Text="Opening area (m2)" />
+                <TextBox Text="{Binding SF[eopen].Text, UpdateSourceTrigger=LostFocus}" />
+                <CheckBox Content="Separate materials for walls and roof" IsChecked="{Binding SeparateFaces, Mode=TwoWay}" Margin="0,6,0,2" />
+                <ComboBox ItemsSource="{Binding FaceNames}" SelectedItem="{Binding SelectedFaceName}" Visibility="{Binding SeparateFaces, Converter={x:Static ui:Inverse.BoolVisibility}}" />
+              </StackPanel>
+
+              <!-- material (barrier transmission or enclosure face) -->
+              <StackPanel Visibility="{Binding MatVisible, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Material" />
+                <StackPanel Orientation="Horizontal">
+                  <RadioButton Content="Mass Law" IsChecked="{Binding MatIsMassLaw, Mode=TwoWay}" Margin="0,0,10,0" />
+                  <RadioButton Content="Manufacturer Data" IsChecked="{Binding MatIsMassLaw, Converter={x:Static ui:Inverse.Bool}}" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding MatIsMassLaw, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                  <TextBlock Style="{StaticResource Lbl}" Text="Surface density (kg/m2)" />
+                  <TextBox Text="{Binding MF[mass].Text, UpdateSourceTrigger=LostFocus}" />
+                  <TextBlock Style="{StaticResource Hint}" Text="or derive it from thickness and volumetric density (homogeneous solid layers only):" />
+                  <StackPanel Orientation="Horizontal">
+                    <TextBox Width="80" Text="{Binding MF[thick].Text, UpdateSourceTrigger=LostFocus}" ToolTip="thickness (m)" />
+                    <TextBox Width="80" Margin="6,1,0,1" Text="{Binding MF[rho].Text, UpdateSourceTrigger=LostFocus}" ToolTip="volumetric density (kg/m3)" />
+                    <CheckBox Content="solid" IsChecked="{Binding MatSolid, Mode=TwoWay}" Margin="6,2,0,0" />
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource Hint}" Text="Formulation: normal-incidence limp mass law, TL = 20 lg(f m) - 42.4 dB (core nb_material)." />
+                </StackPanel>
+                <DataGrid ItemsSource="{Binding TlRows}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="230"
+                          Visibility="{Binding MatIsMassLaw, Converter={x:Static ui:Inverse.BoolNotVisibility}}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Hz" Binding="{Binding Hz}" IsReadOnly="True" Width="60" />
+                    <DataGridTextColumn Header="TL (dB)" Binding="{Binding Text, UpdateSourceTrigger=LostFocus}" Width="*" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <Button Content="Show TL per band (core)" Command="{Binding EstimateMaterialCommand}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding MaterialPreviewText}" />
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding MaterialNote}" />
+                <StackPanel Visibility="{Binding ShowAlpha, Converter={x:Static ui:Inverse.BoolVisibility}}">
+                  <TextBlock Style="{StaticResource Lbl}" Text="Interior absorption coefficient alpha (0 to 1) of this surface" />
+                  <DataGrid ItemsSource="{Binding AlphaRows}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="230">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Hz" Binding="{Binding Hz}" IsReadOnly="True" Width="60" />
+                      <DataGridTextColumn Header="alpha" Binding="{Binding Text, UpdateSourceTrigger=LostFocus}" Width="*" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <TextBlock Style="{StaticResource Hint}" Text="alpha is not a dB value. It sets the interior sound level; the panel TL (dB) sets how much passes through. They are used separately." />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Propagation ================= -->
+        <Expander IsExpanded="{Binding OpenPropagation, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Propagation" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding PropagationSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Lbl}" Text="Prediction mode" />
+            <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding ModeText}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Ground" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Ground factor G (0 = hard: water, concrete; 1 = porous: grass, soil)" />
+            <TextBox x:Name="f_G" Text="{Binding Fields[G].Text, UpdateSourceTrigger=LostFocus}" />
+            <CheckBox Content="Advanced: separate source, middle and receiver G" IsChecked="{Binding SeparateG, Mode=TwoWay}" Margin="0,4" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding SeparateG, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBox Width="70" Text="{Binding Fields[Gs].Text, UpdateSourceTrigger=LostFocus}" ToolTip="Gs source region" />
+              <TextBox Width="70" Margin="6,1,0,1" Text="{Binding Fields[Gm].Text, UpdateSourceTrigger=LostFocus}" ToolTip="Gm middle region" />
+              <TextBox Width="70" Margin="6,1,0,1" Text="{Binding Fields[Gr].Text, UpdateSourceTrigger=LostFocus}" ToolTip="Gr receiver region" />
+            </StackPanel>
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Atmosphere" />
+            <StackPanel Orientation="Horizontal">
+              <StackPanel><TextBlock Text="Temperature (°C)" /><TextBox x:Name="f_T" Width="90" Text="{Binding Fields[T].Text, UpdateSourceTrigger=LostFocus}" /></StackPanel>
+              <StackPanel Margin="6,0,0,0"><TextBlock Text="Humidity (%)" /><TextBox x:Name="f_RHum" Width="90" Text="{Binding Fields[RHum].Text, UpdateSourceTrigger=LostFocus}" /></StackPanel>
+              <StackPanel Margin="6,0,0,0"><TextBlock Text="Pressure (kPa)" /><TextBox x:Name="f_P" Width="90" Text="{Binding Fields[P].Text, UpdateSourceTrigger=LostFocus}" /></StackPanel>
+            </StackPanel>
+            <Button Content="Show absorption (dB/km)" Command="{Binding ShowAtmosphereCommand}" HorizontalAlignment="Left" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding AtmosphereText}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Terrain screening" />
+            <CheckBox Content="Include terrain diffraction (DTM remains the source of elevations)" IsChecked="{Binding ScreeningOn, Mode=TwoWay}" />
+            <TextBlock Style="{StaticResource Hint}" Text="With a DTM the engine always includes terrain diffraction in this version; switching it off is reported as an error rather than ignored." />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Meteorology" />
+            <RadioButton Content="Favourable propagation (no correction)" IsChecked="{Binding LongTerm, Converter={x:Static ui:Inverse.Bool}}" />
+            <RadioButton Content="Long-term average (C_met with C0)" IsChecked="{Binding LongTerm, Mode=TwoWay}" />
+            <StackPanel Visibility="{Binding LongTerm, Converter={x:Static ui:Inverse.BoolVisibility}}">
+              <TextBlock Style="{StaticResource Lbl}" Text="C0 (dB, practical range 0 to about 5)" />
+              <TextBox x:Name="f_C0" Text="{Binding Fields[C0].Text, UpdateSourceTrigger=LostFocus}" />
+            </StackPanel>
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Active effects in the current run" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding EffectsText}" />
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Outputs ================= -->
+        <Expander IsExpanded="{Binding OpenOutputs, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Outputs" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding OutputsSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Lbl}" Text="Output geodatabase" />
+            <StackPanel Orientation="Horizontal">
+              <TextBox x:Name="f_gdb" Width="210" Text="{Binding Fields[gdb].Text, UpdateSourceTrigger=LostFocus}" />
+              <Button Content="..." Command="{Binding BrowseGdbCommand}" Margin="4,1,0,1" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Lbl}" Text="Run name" />
+            <TextBox x:Name="f_run" Text="{Binding Fields[run].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding ExampleNames}" />
+
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Rasters" />
+            <CheckBox Content="Overall A-weighted level LAeq, dB(A)" IsChecked="{Binding OverallA, Mode=TwoWay}" />
+            <CheckBox Content="Overall unweighted level (energy sum of the 8 bands), dB" IsChecked="{Binding OverallZ, Mode=TwoWay}" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Octave-band rasters to save (all 8 bands always enter the overall results)" />
+            <ItemsControl ItemsSource="{Binding BandChoices}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate><CheckBox Content="{Binding Hz}" IsChecked="{Binding Save, Mode=TwoWay}" Margin="0,0,10,0" /></DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Style="{StaticResource Lbl}" Text="Allowed level, dB(A) (optional: adds margin and PASS/FAIL rasters)" />
+            <TextBox x:Name="f_limit" Text="{Binding Fields[limit].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Shared colour scale, dB (same colours across baseline and mitigation runs)" />
+            <StackPanel Orientation="Horizontal">
+              <TextBox x:Name="f_smin" Width="70" Text="{Binding Fields[smin].Text, UpdateSourceTrigger=LostFocus}" ToolTip="minimum" />
+              <TextBox Width="70" Margin="6,1,0,1" Text="{Binding Fields[smax].Text, UpdateSourceTrigger=LostFocus}" ToolTip="maximum" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Lbl}" Text="Detail cells (click a cell to read all attenuations)" />
+            <ComboBox ItemsSource="{Binding DetailChoices}" SelectedItem="{Binding Detail}" />
+            <CheckBox Content="Add results to the map (named group in Contents)" IsChecked="{Binding AddToMap, Mode=TwoWay}" Margin="0,4" />
+            <TextBlock Style="{StaticResource Hint}" Text="Receiver cells inside building footprints are left empty (NoData); the run summary counts them. Each run saves a snapshot of the settings, spectrum, materials and structures." />
+          </StackPanel>
+        </Expander>
+
+        <!-- ================= Issues ================= -->
+        <Expander IsExpanded="{Binding OpenIssues, Mode=TwoWay}">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Issues" />
+              <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding IssueSummary}" /></StackPanel>
+          </Expander.Header>
+          <StackPanel Margin="14,2,0,8">
+            <TextBlock Style="{StaticResource Hint}" Text="Click an issue to go straight to the input." />
+            <ListBox ItemsSource="{Binding Issues}" SelectedItem="{Binding SelectedIssue}" MaxHeight="260" MouseDoubleClick="Issue_DoubleClick" SelectionChanged="Issue_Selected">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Icon}" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" MaxWidth="270" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </Expander>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Preview and Run stay at the bottom -->
+    <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="Gray" Padding="6">
+      <StackPanel>
+        <StackPanel Orientation="Horizontal">
+          <Button Content="Preview" Command="{Binding PreviewCommand}" MinWidth="80" />
+          <Button Content="Run" Command="{Binding RunCommand}" MinWidth="80" FontWeight="Bold" />
+          <TextBlock Text="{Binding IssueSummary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+        </StackPanel>
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="Gray" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

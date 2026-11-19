@@ -105,6 +105,8 @@ def cell_arrays(arr, n, ids, has_limits, has_band_limits):
         cols.append(("Worst_Hz", "f8", np.array([BANDS[int(b) - 1] if np.isfinite(b) and b >= 1 else np.nan
                                                   for b in arr["worst_band"]])))
         cols.append(("Worst_dB", "f8", arr["worst_margin"]))
+    if "LZ" in arr:
+        cols.append(("LZ", "f8", arr["LZ"]))               # unweighted energy sum of the 8 bands
     for i, b in enumerate(BANDS):
         cols.append(("Lp_%d" % b, "f8", arr["Lp"][:, i]))
     for i, b in enumerate(BANDS):

@@ -1,0 +1,101 @@
+{
+  "schema": "noisebox.scenario/1",
+  "id": "",
+  "name": "Scenario 1",
+  "created": "",
+  "modified": "",
+  "notes": "",
+  "crs": {
+    "wkid": null
+  },
+  "source": {
+    "name": "Source 1",
+    "origin": null,
+    "x": null,
+    "y": null,
+    "input_wkid": null,
+    "layer": null,
+    "height_m": null,
+    "spectrum": {
+      "lw": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "profile": null,
+      "kind": "manual"
+    },
+    "directivity": {
+      "mode": "omni",
+      "dc": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heading_deg": 0.0,
+      "angular_table": null
+    }
+  },
+  "terrain": {
+    "dtm": null,
+    "vertical_unit": null,
+    "screening": true
+  },
+  "area": {
+    "mode": null,
+    "rings": null,
+    "radius_m": null,
+    "extent": null,
+    "input_wkid": null,
+    "layer": null,
+    "selection": null,
+    "cell": {
+      "mode": "custom",
+      "size_m": null
+    },
+    "receiver_height_m": 1.5
+  },
+  "structures": [],
+  "propagation": {
+    "mode": "iso2024",
+    "ground": {
+      "G": 0.5,
+      "separate": false,
+      "Gs": null,
+      "Gm": null,
+      "Gr": null,
+      "mapped": null
+    },
+    "atmosphere": {
+      "T_C": 15.0,
+      "RH": 70.0,
+      "p_kPa": 101.325
+    },
+    "meteorology": {
+      "method": "favourable",
+      "C0": null
+    }
+  },
+  "outputs": {
+    "gdb": null,
+    "run_name": null,
+    "overall_a": true,
+    "overall_z": false,
+    "bands": [],
+    "add_to_map": true,
+    "limit_dba": null,
+    "shared_scale": null,
+    "detail": "Levels only",
+    "inside_buildings": "nodata"
+  }
+}

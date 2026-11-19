@@ -35,4 +35,10 @@ $vpy = "$venv\Scripts\python.exe"
 
 # 4) verify
 & $vpy -c "import matlab.engine, numpy, sys; print('OK: Python', sys.version.split()[0], '| numpy', numpy.__version__, '| matlab.engine', matlab.engine.__file__)"
+# 5) tell the ArcGIS Pro add-in where this folder is (the add-in runs noisebox_cli.py from here)
+$root = Split-Path -Parent $PSScriptRoot
+$cfg = Join-Path $env:LOCALAPPDATA "NoiseBox\addin.json"
+New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
+(@{ root = $root } | ConvertTo-Json) | Set-Content -Path $cfg -Encoding UTF8
+Write-Host "Add-in folder registered: $root"
 Write-Host "`nDone. In ArcGIS Pro run the 'Check MATLAB Link' tool."
