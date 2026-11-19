@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "addin", "NoiseBoxAddin", "Images")
 DAML = os.path.join(ROOT, "addin", "NoiseBoxAddin", "Config.daml")
+PACK = ""   # Pro 3.5 resolves only the Windows-style form Images\Name.png (tested: Images/x.png, pack:// and file:// show the default icon)
 GROUP = {"scenario": "#1f3b5c", "source": "#d9822b", "terrain": "#3f7f4f", "struct": "#5b6b7f", "prop": "#1f8a8a", "analysis": "#2f6fa8"}
 
 # id suffix (after NoiseBox_) -> (glyph, group)
@@ -170,10 +171,10 @@ def main():
         if "smallImage=" in head:
             return head
         key = m.group(2)
-        return head.replace(' caption="', ' smallImage="Images/%s16.png" largeImage="Images/%s32.png" caption="' % (key, key), 1)
+        return head.replace(' caption="', ' smallImage="%sImages\\%s16.png" largeImage="%sImages\\%s32.png" caption="' % (PACK, key, PACK, key), 1)
     txt = re.sub(r'<(button|tool) id="NoiseBox_([A-Za-z_]+)"[^>]*?>', wire, txt)
-    if 'image="Images/Pane16.png"' not in txt:
-        txt = txt.replace('<dockPane id="NoiseBox_Pane" caption="NoiseBox"', '<dockPane id="NoiseBox_Pane" caption="NoiseBox" image="Images/Pane16.png"')
+    if 'Images\\Pane16.png' not in txt:
+        txt = txt.replace('<dockPane id="NoiseBox_Pane" caption="NoiseBox"', '<dockPane id="NoiseBox_Pane" caption="NoiseBox" image="' + PACK + 'Images\\Pane16.png"')
     open(DAML, "w", encoding="utf-8").write(txt)
     print("wrote %d icon pairs to %s" % (len(MAP), IMG))
 

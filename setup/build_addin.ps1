@@ -30,7 +30,7 @@ $stage = Join-Path ([IO.Path]::GetTempPath()) ("noisebox_addin_" + [Guid]::NewGu
 New-Item -ItemType Directory -Force (Join-Path $stage "Install") | Out-Null
 Copy-Item (Join-Path $projDir "Config.daml") $stage
 Copy-Item (Join-Path $out "NoiseBoxAddin.dll") (Join-Path $stage "Install")
-Copy-Item (Join-Path $projDir "Images") (Join-Path $stage "Images") -Recurse   # ribbon icons referenced from Config.daml
+Copy-Item (Join-Path $projDir "Images") (Join-Path $stage "Images") -Recurse   # ribbon icons (also embedded in the dll as resources)
 
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
