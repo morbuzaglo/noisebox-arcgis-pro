@@ -31,8 +31,16 @@ namespace NoiseBoxAddin.Core
             var root = JsonNode.Parse(r.ReadToEnd()).AsObject();
             root["name"] = name;
             root["id"] = Guid.NewGuid().ToString("N").Substring(0, 12);
-            root["created"] = root["modified"] = DateTime.Now.ToString("s");
+            Stamp(root);
             return new ScenarioDoc(root);
+        }
+
+        // Two separate nodes: a JsonNode has one parent, so `a["x"] = a["y"] = value` throws "The node already has a parent".
+        private static void Stamp(JsonObject root)
+        {
+            string now = DateTime.Now.ToString("s");
+            root["created"] = now;
+            root["modified"] = now;
         }
 
         public static ScenarioDoc Load(string path)
@@ -58,7 +66,7 @@ namespace NoiseBoxAddin.Core
             var root = JsonNode.Parse(Root.ToJsonString()).AsObject();
             root["id"] = Guid.NewGuid().ToString("N").Substring(0, 12);
             root["name"] = newName;
-            root["created"] = root["modified"] = DateTime.Now.ToString("s");
+            Stamp(root);
             return new ScenarioDoc(root) { Dirty = true };
         }
 
