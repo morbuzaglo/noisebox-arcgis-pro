@@ -25,6 +25,17 @@ Ribbon icons: `addin/NoiseBoxAddin/Images/<Name>16.png` and `<Name>32.png` (one 
 `Config.daml` without `NoiseBox_`). The generated placeholders come from `docs/make_icons.py`; overwrite any PNG with your
 own artwork of the same name and rebuild.
 
+Add-in troubleshooting (found while testing in ArcGIS Pro 3.5):
+* Install with the `.esriAddinX` double-click or `"C:\Program Files\ArcGIS\Pro\bin\RegisterAddIn.exe" NoiseBox.esriAddinX /s`.
+  Do not copy files by hand: Pro keeps its own copy in `%LOCALAPPDATA%\ESRI\ArcGISPro\AssemblyCache\{add-in id}`.
+* Raise the add-in version in `Config.daml` (`AddInInfo version`) with every change, or Pro keeps the old copy.
+* If a ribbon button turns grey after a click, its handler threw an exception. Every exception raised inside the add-in is
+  written to `%LOCALAPPDATA%\NoiseBox\addin.log`; send that file with a bug report.
+* After a Pro crash, a leftover `ArcGISPro.exe` (no window, cannot be ended without admin rights) can keep the cached
+  `NoiseBoxAddin.dll` locked, so a new install does not replace it. Rename the cached file (`NoiseBoxAddin.dll` to
+  `NoiseBoxAddin.dll.stale`, renaming a locked file is allowed), install again, restart Pro; a reboot also clears it.
+* The ribbon icons must be written `Images\Name.png` (backslash) in `Config.daml`.
+
 Rebuild the add-in with any .NET SDK: `.\setup\build_addin.ps1` (see the manual, section 3).
 Tests: `tests/run_all.py <outdir>` runs everything (the MATLAB tests take about 30 to 40 minutes);
 `tests/test_scenario.py` (validation, no MATLAB), `tests/test_cli.py`, `tests/check_addin_package.py`,
