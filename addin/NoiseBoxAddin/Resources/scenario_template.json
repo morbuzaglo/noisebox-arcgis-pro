@@ -94,6 +94,17 @@
     "bands": [],
     "add_to_map": true,
     "limit_dba": null,
+    "limit_bands": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "limit_band_weighting": "A",
     "shared_scale": null,
     "detail": "Levels only",
     "inside_buildings": "nodata"

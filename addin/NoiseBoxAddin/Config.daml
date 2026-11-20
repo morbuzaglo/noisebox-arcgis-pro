@@ -7,7 +7,7 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
 
-  <AddInInfo id="{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}" version="1.7" desktopVersion="3.5.0">
+  <AddInInfo id="{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}" version="1.15" desktopVersion="3.5.0">
     <Name>NoiseBox</Name>
     <Description>Outdoor noise mapping (ISO 9613-2) with a MATLAB core: scenarios, sources, structures, enclosures, receiver grids.</Description>
     <Date>2026-11-19</Date>
@@ -101,6 +101,9 @@
 
         <!-- Terrain and Area -->
         <button id="NoiseBox_Dtm_FromProject" keytip="N20" smallImage="Images\Dtm_FromProject16.png" largeImage="Images\Dtm_FromProject32.png" caption="DTM from Project Rasters" className="Buttons.DtmFromProject" loadOnClick="true" />
+        <button id="NoiseBox_Dtm_Ground" keytip="N57" smallImage="Images\Dtm_Ground16.png" largeImage="Images\Dtm_Ground32.png" caption="DTM from Map Ground" className="Buttons.DtmGround" loadOnClick="true">
+          <tooltip heading="DTM from Map Ground">Use the raster that is the ground elevation source of the active map (Contents &gt; Elevation Surfaces &gt; Ground).</tooltip>
+        </button>
         <button id="NoiseBox_Dtm_Browse" keytip="N21" smallImage="Images\Dtm_Browse16.png" largeImage="Images\Dtm_Browse32.png" caption="Browse..." className="Buttons.DtmBrowse" loadOnClick="true" />
         <button id="NoiseBox_Dtm_Coverage" keytip="N22" smallImage="Images\Dtm_Coverage16.png" largeImage="Images\Dtm_Coverage32.png" caption="Show Coverage" className="Buttons.DtmCoverage" loadOnClick="true">
           <tooltip heading="Show Coverage">Draw the DTM footprint and the gaps along source-to-receiver paths.</tooltip>
@@ -156,6 +159,7 @@
         </splitButton>
         <splitButton id="NoiseBox_SelectDtm" keytip="N52">
           <button refID="NoiseBox_Dtm_FromProject" />
+          <button refID="NoiseBox_Dtm_Ground" />
           <button refID="NoiseBox_Dtm_Browse" />
           <button refID="NoiseBox_Dtm_Coverage" />
           <button refID="NoiseBox_Dtm_None" />

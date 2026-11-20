@@ -276,6 +276,10 @@ CATALOGUE = {
     "OUT-017": (ERROR,   "outputs", "The scenario snapshot could not be saved ({detail}).", "Check that the output folder is writable."),
     "OUT-018": (WARNING, "outputs", "The output geodatabase is inside a synchronised folder ({detail}); sync can lock rasters while they are written.", "Use a local geodatabase if saving fails."),
     "OUT-019": (WARNING, "outputs", "The output name '{name}' is longer than 50 characters; it was shortened.", ""),
+    "OUT-020": (ERROR,   "outputs", "The per-band limits must be a list of 8 values (one per octave band 63 to 8000 Hz); got {n}.", "Fill the eight boxes of the band-limit table; leave a box empty for no limit in that band."),
+    "OUT-021": (ERROR,   "outputs", "The limit for {band} Hz is not a number (got {value}).", "Enter the allowed level in dB, or leave the box empty for no limit in that band."),
+    "OUT-022": (ERROR,   "outputs", "The band limits must be compared as A-weighted (A) or unweighted (Z) levels (got {value}).", "Choose A-weighted or unweighted in the Limits box."),
+    "OUT-023": (INFO,    "outputs", "A cell passes only if EVERY limit is met: {rule}.", "One exceeded band is enough to fail; the Margin raster shows the largest exceedance in dB."),
 
     # ---------------------------------------------------------------- engine / run
     "ENG-001": (ERROR,   "engine", "The Python 3.10 environment for MATLAB was not found ({path}).", "Run setup\\setup_noisebox.ps1, or set NOISEBOX_PY310. See Check MATLAB Link."),

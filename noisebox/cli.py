@@ -106,9 +106,21 @@ def main(argv=None):
     p = sub.add_parser("new")
     p.add_argument("path")
     p.add_argument("--name", default="Scenario 1")
+    p = sub.add_parser("engine", help="the warm MATLAB engine: status | start | stop")
+    p.add_argument("action", choices=["status", "start", "stop"])
     a = ap.parse_args(argv)
 
     try:
+        if a.cmd == "engine":
+            from . import exchange
+            if a.action == "stop":
+                _out({"ok": True, "stopped": exchange.engine_stop(), **exchange.engine_status()})
+            elif a.action == "start":
+                st = exchange._ensure_server()
+                _out({"ok": True, **exchange.engine_status()})
+            else:
+                _out({"ok": True, **exchange.engine_status()})
+            return 0
         if a.cmd == "validate":
             sc, iss = _load(a.scenario)
             iss = SC.validate(sc, deep=not a.fast) + iss

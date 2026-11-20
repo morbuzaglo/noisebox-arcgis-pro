@@ -49,6 +49,33 @@ namespace NoiseBoxAddin.Core
 
         public static string DataPath(Layer layer) => layer.GetPath()?.LocalPath;
 
+        // ---------------------------------------------------------------- the map's ground (elevation surface)
+        internal sealed class GroundItem
+        {
+            public string Name { get; set; }
+            public string Path { get; set; }               // local raster file or geodatabase raster; null for web services
+            public string Source { get; set; }             // as Pro reports it (shown in messages)
+            public bool IsLocal => !string.IsNullOrEmpty(Path) && (File.Exists(Path) || Directory.Exists(Path) || Path.Contains(".gdb"));
+        }
+
+        /// <summary>The sources of the active map's ground elevation surface (Contents > Elevation Surfaces > Ground),
+        /// top priority first. A source that is a web service has no local file and cannot be used directly.</summary>
+        public static Task<List<GroundItem>> GroundSourcesAsync() => QueuedTask.Run(() =>
+        {
+            var list = new List<GroundItem>();
+            var map = MapView.Active?.Map;
+            if (map == null) return list;
+            var surface = map.GetGroundElevationSurfaceLayer();
+            if (surface == null) return list;
+            foreach (var l in surface.Layers)
+            {
+                string p = null, src = null;
+                try { var u = l.GetPath(); src = u?.ToString(); p = u != null && u.IsFile ? u.LocalPath : null; } catch { }
+                list.Add(new GroundItem { Name = l.Name, Path = p, Source = src });
+            }
+            return list;
+        });
+
         // ---------------------------------------------------------------- source from a point layer
         /// <summary>Selected points of a layer (one entry per point). If several are selected the pane lets the user choose.</summary>
         public static Task<List<PointCandidate>> SelectedPointsAsync(FeatureLayer layer) => QueuedTask.Run(() =>
@@ -190,7 +217,7 @@ namespace NoiseBoxAddin.Core
 
         /// <summary>Draws source, heading arrow, receiver area, DTM gaps and the structures that are visible. Participation
         /// (included in the run) only changes how they are drawn; hiding one never changes the calculation.</summary>
-        public Task DrawAsync(ScenarioDoc doc, JsonObject preview, string selectedId, string selectedFace = null) => QueuedTask.Run(() =>
+        public Task DrawAsync(ScenarioDoc doc, JsonObject preview, string selectedId, string selectedFace = null, bool layersCarryObjects = false) => QueuedTask.Run(() =>
         {
             Clear();
             var mv = MapView.Active;
@@ -200,7 +227,7 @@ namespace NoiseBoxAddin.Core
             // receiver area
             var area = preview?["area"]?["rings"] as JsonArray;
             int wkid = (int?)preview?["source"]?["wkid"] ?? 0;
-            if (area != null && wkid != 0)
+            if (!layersCarryObjects && area != null && wkid != 0)
             {
                 var sr = SpatialReferenceBuilder.CreateSpatialReference(wkid);
                 var outline = SymbolFactory.Instance.ConstructStroke(C(0, 112, 192), 2, SimpleLineStyle.Dash);
@@ -223,6 +250,7 @@ namespace NoiseBoxAddin.Core
                 if (!((bool?)st["visible"] ?? true)) continue;               // hidden drawing: not drawn, still calculated if included
                 bool inc = (bool?)st["include"] ?? true;
                 bool sel = (string)st["id"] == selectedId;
+                if (layersCarryObjects && !sel) continue;       // objects are real layers in Contents; only the selected one is highlighted here
                 int w = (int?)st["input_wkid"] ?? wkid;
                 if (w == 0) continue;
                 var sr = SpatialReferenceBuilder.CreateSpatialReference(w);
@@ -269,7 +297,7 @@ namespace NoiseBoxAddin.Core
             {
                 var sr = SpatialReferenceBuilder.CreateSpatialReference(wkid);
                 double x = (double)src["x"], y = (double)src["y"];
-                Add(MapPointBuilderEx.CreateMapPoint(x, y, sr), SymbolFactory.Instance.ConstructPointSymbol(C(200, 30, 30), 12, SimpleMarkerStyle.Circle));
+                if (!layersCarryObjects) Add(MapPointBuilderEx.CreateMapPoint(x, y, sr), SymbolFactory.Instance.ConstructPointSymbol(C(200, 30, 30), 12, SimpleMarkerStyle.Circle));
                 bool directional = doc.GetString("source.directivity.mode") == "directional";
                 if (directional)
                 {
@@ -290,7 +318,7 @@ namespace NoiseBoxAddin.Core
             }
         });
 
-        private static JsonArray PreciseBarrierPath(JsonObject st)
+        internal static JsonArray PreciseBarrierPath(JsonObject st)
         {
             var pl = st["placement"];
             if ((string)pl?["mode"] != "straight" || pl["start"] == null || pl["length_m"] == null || pl["azimuth_deg"] == null) return null;
@@ -299,7 +327,7 @@ namespace NoiseBoxAddin.Core
         }
 
         /// <summary>Footprint of a rectangle enclosure around the source (same rule as noisebox/structures.py rect_footprint).</summary>
-        private static JsonArray EnclosureRing(ScenarioDoc doc, JsonObject st, JsonObject preview)
+        internal static JsonArray EnclosureRing(ScenarioDoc doc, JsonObject st, JsonObject preview)
         {
             var r = st["rect"]; var src = preview?["source"];
             if (r == null || src == null || r["length_m"] == null || r["width_m"] == null) return null;

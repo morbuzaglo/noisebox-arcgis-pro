@@ -231,7 +231,9 @@ def run(sc, log=None):
     detail_full = o.get("detail") == "Full" and n_active <= SC.MAX_DETAIL_CELLS
     if o.get("detail") == "Full" and not detail_full:
         log.warn(I.make("ARA-020", cells=n_active, limit=SC.MAX_DETAIL_CELLS).message)
-    has_lim = o.get("limit_dba") is not None
+    has_lim = SC.limits_set(o)
+    bl = SC.band_limits(o)
+    has_band_lim = any(v is not None for v in bl)
     want_bands = bool(o.get("overall_z") or o.get("bands") or has_lim or detail_full)
 
     # ---- terrain
@@ -253,7 +255,7 @@ def run(sc, log=None):
     g = p["ground"]
     settings = {"G": g["Gm"] if g.get("separate") else g["G"], "hr": float(sc["area"]["receiver_height_m"]),
                 "T_C": float(p["atmosphere"]["T_C"]), "RH": float(p["atmosphere"]["RH"]), "mode": p["mode"],
-                "limits": exchange.limits_job(o.get("limit_dba"), None, "Z"),
+                "limits": exchange.limits_job(o.get("limit_dba") if SC._finite(o.get("limit_dba")) else None, bl, o.get("limit_band_weighting", "A")),
                 "detail": "Full" if detail_full else "Levels only", "want_bands": want_bands}
     job = exchange.build_job(settings, [source], obstacles, dem, grid=grid)
     job["atm"]["p_kPa"] = float(p["atmosphere"]["p_kPa"])
@@ -318,8 +320,9 @@ def run(sc, log=None):
         created["Lp%d" % b] = out.write_raster(arr["Lp"][:, i].reshape(ny, nx), ll, cs, sr,
                                                out.out_path(gdb, "%s_Lp%d" % (run_name, b)))
     if has_lim:
-        created["margin"] = out.write_raster(arr["margin_overall"].reshape(ny, nx), ll, cs, sr,
-                                             out.out_path(gdb, run_name + "_Margin"))
+        # largest exceedance over ALL limits (overall dB(A) and every limited band); > 0 means the cell fails
+        marg = np.fmax(arr["margin_overall"], arr["worst_margin"]) if has_band_lim else arr["margin_overall"]
+        created["margin"] = out.write_raster(marg.reshape(ny, nx), ll, cs, sr, out.out_path(gdb, run_name + "_Margin"))
         pth = out.out_path(gdb, run_name + "_PassFail")
         out.write_passfail(arr["code"].reshape(ny, nx), ll, cs, sr, pth)
         created["passfail"] = pth
@@ -329,7 +332,7 @@ def run(sc, log=None):
         ids = np.arange(1, ncell + 1, dtype="int32")
         v = np.isfinite(arr["LAeq"])
         sub = {k: a[v] for k, a in arr.items()}
-        struct = out.cell_arrays(sub, int(v.sum()), ids[v], has_lim, False)
+        struct = out.cell_arrays(sub, int(v.sum()), ids[v], has_lim, has_band_lim)
         ids2d = np.where(v.reshape(ny, nx), ids.reshape(ny, nx), 0)
         pth = out.out_path(gdb, run_name + "_Cells")
         out.write_cells(ids2d, struct, ll, cs, sr, pth)
@@ -345,8 +348,19 @@ def run(sc, log=None):
     if has_lim:
         code = arr["code"]
         nfail, npass = int((code == 0).sum()), int((code == 1).sum())
-        rows += [("Limit", o["limit_dba"], "dB(A)", ""), ("Area above the limit", nfail * cs * cs, "m2", ""),
-                 ("Share of area above the limit", 100.0 * nfail / max(nfail + npass, 1), "%", "")]
+        if SC._finite(o.get("limit_dba")):
+            rows.append(("Limit, overall", float(o["limit_dba"]), "dB(A)", ""))
+        for hz, v in zip(BANDS, bl):
+            if v is not None:
+                rows.append(("Limit, %d Hz" % hz, v, "dB(A)" if o.get("limit_band_weighting", "A") == "A" else "dB", ""))
+        rows += [("Pass rule", None, "", "every limit must be met"[:119]),
+                 ("Area failing at least one limit", nfail * cs * cs, "m2", ""),
+                 ("Share of area failing", 100.0 * nfail / max(nfail + npass, 1), "%", "")]
+        if has_band_lim:
+            wb = arr["worst_band"]
+            for hz_i, hz in enumerate(BANDS):
+                if bl[hz_i] is not None:
+                    rows.append(("Cells exceeding the %d Hz limit" % hz, int(np.nansum(arr["margin_bands"][:, hz_i] > 0)), "cells", ""))
     created["summary"] = out.out_path(gdb, run_name + "_Summary")
     out.write_summary(rows, created["summary"])
 

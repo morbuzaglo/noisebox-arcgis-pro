@@ -113,6 +113,7 @@ namespace NoiseBoxAddin.Buttons
 
     // ---------------------------------------------------------------- Terrain and Area
     internal class DtmFromProject : PaneButton { protected override void OnClick() { Open("terrain", "dtm"); _ = Ui.Pane?.RefreshListsAsync(); } }
+    internal class DtmGround : PaneButton { protected override async void OnClick() { Open("terrain", "dtm"); await Ui.Pane.UseGroundSurfaceAsync(); } }
     internal class DtmBrowse : PaneButton { protected override async void OnClick() { Open("terrain"); await Ui.Pane.BrowseDtmAsync(); } }
     internal class DtmCoverage : PaneButton { protected override void OnClick() { Open("terrain"); Ui.Pane?.ShowCoverageCommand.Execute(null); } }
     internal class DtmNone : PaneButton { protected override void OnClick() { NoiseBoxModule.Current.Doc.Set("terrain.dtm", null); Open("terrain"); } }

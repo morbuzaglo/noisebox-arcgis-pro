@@ -18,6 +18,12 @@
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,2,0,2" />
       </Style>
+      <Style TargetType="Expander">
+        <Setter Property="Margin" Value="0,0,0,5" />
+        <Setter Property="BorderBrush" Value="#C7CDD6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="3" />
+      </Style>
       <Style TargetType="Button">
         <Setter Property="Margin" Value="0,3,4,3" />
         <Setter Property="Padding" Value="8,2" />
@@ -46,20 +52,21 @@
         <!-- ================= Scenario ================= -->
         <Expander IsExpanded="{Binding OpenScenario, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Scenario" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Scenario" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding ScenarioSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
             <TextBlock Style="{StaticResource Lbl}" Text="Name" />
             <TextBox x:Name="f_name" Text="{Binding Fields[name].Text, UpdateSourceTrigger=LostFocus}" />
             <TextBlock Style="{StaticResource Hint}" Text="The scenario file stores everything; the GIS layers it refers to are never changed." />
+            <TextBlock Style="{StaticResource Hint}" Text="Steps: 1 Source, 2 Terrain and Area, 3 Structures (optional), 4 Propagation, 5 Outputs. Press Preview to check the inputs on the map, then Run. Objects you create with the tools appear in Contents under NoiseBox inputs." />
           </StackPanel>
         </Expander>
 
         <!-- ================= Source ================= -->
         <Expander IsExpanded="{Binding OpenSource, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Source" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Source" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding SourceSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -136,7 +143,7 @@
         <!-- ================= Terrain and Area ================= -->
         <Expander IsExpanded="{Binding OpenTerrain, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Terrain and Area" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Terrain and Area" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding TerrainSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -144,6 +151,7 @@
             <ComboBox x:Name="f_dtm" ItemsSource="{Binding RasterLayers}" SelectedItem="{Binding SelectedRaster}" DisplayMemberPath="Name" />
             <WrapPanel>
               <Button Content="Use this raster" Command="{Binding UseRasterCommand}" />
+              <Button Content="Use map ground surface" Command="{Binding UseGroundCommand}" ToolTip="Take the DTM from Contents &gt; Elevation Surfaces &gt; Ground of the active map (must be a raster file, not a web service)" />
               <Button Content="Browse..." Command="{Binding BrowseDtmCommand}" />
               <Button Content="Show Coverage" Command="{Binding ShowCoverageCommand}" />
               <Button Content="Refresh lists" Command="{Binding RefreshListsCommand}" />
@@ -190,7 +198,7 @@
         <!-- ================= Structures ================= -->
         <Expander IsExpanded="{Binding OpenStructures, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Structures" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Structures" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding StructuresSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -323,7 +331,7 @@
         <!-- ================= Propagation ================= -->
         <Expander IsExpanded="{Binding OpenPropagation, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Propagation" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Propagation" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding PropagationSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -370,7 +378,7 @@
         <!-- ================= Outputs ================= -->
         <Expander IsExpanded="{Binding OpenOutputs, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Outputs" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Outputs" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding OutputsSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -393,8 +401,23 @@
                 <DataTemplate><CheckBox Content="{Binding Hz}" IsChecked="{Binding Save, Mode=TwoWay}" Margin="0,0,10,0" /></DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <TextBlock Style="{StaticResource Lbl}" Text="Allowed level, dB(A) (optional: adds margin and PASS/FAIL rasters)" />
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="Allowed levels (optional: adds Margin and PASS/FAIL rasters)" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Overall limit on LAeq, dB(A)" />
             <TextBox x:Name="f_limit" Text="{Binding Fields[limit].Text, UpdateSourceTrigger=LostFocus}" />
+            <TextBlock Style="{StaticResource Lbl}" Text="Limit for each octave band (empty = no limit in that band)" />
+            <DataGrid x:Name="f_limbands" ItemsSource="{Binding LimitRows}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="230">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Hz" Binding="{Binding Hz}" IsReadOnly="True" Width="60" />
+                <DataGridTextColumn Header="Limit (dB)" Binding="{Binding Text, UpdateSourceTrigger=LostFocus}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Orientation="Horizontal" Margin="0,3">
+              <TextBlock Text="Compare the bands as:" Margin="0,0,8,0" />
+              <RadioButton Content="A-weighted, dB(A)" IsChecked="{Binding LimitWeightA, Mode=TwoWay}" Margin="0,0,10,0" />
+              <RadioButton Content="unweighted, dB" IsChecked="{Binding LimitWeightA, Converter={x:Static ui:Inverse.Bool}}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding LimitRuleText}" />
+            <Button Content="Clear all limits" Command="{Binding ClearLimitsCommand}" HorizontalAlignment="Left" />
             <TextBlock Style="{StaticResource Lbl}" Text="Shared colour scale, dB (same colours across baseline and mitigation runs)" />
             <StackPanel Orientation="Horizontal">
               <TextBox x:Name="f_smin" Width="70" Text="{Binding Fields[smin].Text, UpdateSourceTrigger=LostFocus}" ToolTip="minimum" />
@@ -404,13 +427,19 @@
             <ComboBox ItemsSource="{Binding DetailChoices}" SelectedItem="{Binding Detail}" />
             <CheckBox Content="Add results to the map (named group in Contents)" IsChecked="{Binding AddToMap, Mode=TwoWay}" Margin="0,4" />
             <TextBlock Style="{StaticResource Hint}" Text="Receiver cells inside building footprints are left empty (NoData); the run summary counts them. Each run saves a snapshot of the settings, spectrum, materials and structures." />
+            <TextBlock Style="{StaticResource Lbl}" FontWeight="SemiBold" Text="MATLAB engine" />
+            <TextBlock Style="{StaticResource Hint}" Text="{Binding EngineText}" />
+            <WrapPanel>
+              <Button Content="Check engine" Command="{Binding EngineStatusCommand}" />
+              <Button Content="Stop engine" Command="{Binding EngineStopCommand}" ToolTip="Frees the memory MATLAB uses; the next run starts it again" />
+            </WrapPanel>
           </StackPanel>
         </Expander>
 
         <!-- ================= Issues ================= -->
         <Expander IsExpanded="{Binding OpenIssues, Mode=TwoWay}">
           <Expander.Header>
-            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="SemiBold" Text="Issues" />
+            <StackPanel Orientation="Horizontal"><TextBlock FontWeight="Bold" FontSize="13" Foreground="#1F3B5C" Text="Issues" />
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding IssueSummary}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
@@ -435,7 +464,7 @@
       <StackPanel>
         <StackPanel Orientation="Horizontal">
           <Button Content="Preview" Command="{Binding PreviewCommand}" MinWidth="80" />
-          <Button Content="Run" Command="{Binding RunCommand}" MinWidth="80" FontWeight="Bold" />
+          <Button Content="Run" Command="{Binding RunCommand}" MinWidth="80" FontWeight="Bold" Background="#2F6FA8" Foreground="White" />
           <TextBlock Text="{Binding IssueSummary}" VerticalAlignment="Center" Margin="8,0,0,0" />
         </StackPanel>
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="Gray" />

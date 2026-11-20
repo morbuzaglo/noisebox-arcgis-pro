@@ -58,7 +58,7 @@ def new_scenario(name="Scenario 1", wkid=None):
             "meteorology": {"method": "favourable", "C0": None},
         },
         "outputs": {"gdb": None, "run_name": None, "overall_a": True, "overall_z": False, "bands": [],
-                    "add_to_map": True, "limit_dba": None, "shared_scale": None, "detail": "Levels only",
+                    "add_to_map": True, "limit_dba": None, "limit_bands": [None] * 8, "limit_band_weighting": "A", "shared_scale": None, "detail": "Levels only",
                     "inside_buildings": "nodata"},
     }
 
@@ -1268,10 +1268,48 @@ def _v_outputs(c, deep):
     lim = o.get("limit_dba")
     if lim is not None and not _finite(lim):
         c.add("OUT-014", value=lim)
+    lb = o.get("limit_bands")
+    if lb is not None:
+        if not isinstance(lb, (list, tuple)) or len(lb) != 8:
+            c.add("OUT-020", n=(len(lb) if isinstance(lb, (list, tuple)) else "not a list"))
+        else:
+            for hz, v in zip(BANDS, lb):
+                if v is not None and not _finite(v):
+                    c.add("OUT-021", band=hz, value=v)
+    if o.get("limit_band_weighting", "A") not in ("A", "Z"):
+        c.add("OUT-022", value=o.get("limit_band_weighting"))
+    if limits_set(o):
+        c.add("OUT-023", rule=limit_rule_text(o))
     c.add("OUT-016")
     if rn and gdb:
         names = dataset_names(rn, o)
         c.add("OUT-011", names=", ".join(names))
+
+
+def band_limits(o):
+    """The eight per-band limits as floats / None (tolerates missing or malformed values)."""
+    lb = o.get("limit_bands")
+    out = []
+    for i in range(8):
+        v = lb[i] if isinstance(lb, (list, tuple)) and i < len(lb) else None
+        out.append(float(v) if _finite(v) else None)
+    return out
+
+
+def limits_set(o):
+    """True when at least one limit (overall dB(A) or any octave band) is defined."""
+    return _finite(o.get("limit_dba")) or any(v is not None for v in band_limits(o))
+
+
+def limit_rule_text(o):
+    parts = []
+    if _finite(o.get("limit_dba")):
+        parts.append("LAeq <= %g dB(A)" % float(o["limit_dba"]))
+    w = "dB(A)" if o.get("limit_band_weighting", "A") == "A" else "dB (unweighted)"
+    for hz, v in zip(BANDS, band_limits(o)):
+        if v is not None:
+            parts.append("%d Hz <= %g %s" % (hz, v, w))
+    return "; ".join(parts)
 
 
 def dataset_names(run, o):
@@ -1282,7 +1320,7 @@ def dataset_names(run, o):
         names.append(run + "_LZ")
     for b in o.get("bands") or []:
         names.append("%s_Lp%s" % (run, b))
-    if o.get("limit_dba") is not None:
+    if limits_set(o):
         names += [run + "_Margin", run + "_PassFail"]
     if o.get("detail") == "Full":
         names.append(run + "_Cells")
@@ -1497,7 +1535,8 @@ def section_summaries(sc):
             "propagation": "%s, %s, %s C, %s %% RH, %s" % (p["mode"], gtxt, _fmt(p["atmosphere"]["T_C"]),
                                                           _fmt(p["atmosphere"]["RH"]),
                                                           "long-term" if p["meteorology"]["method"] == "long_term" else "favourable"),
-            "outputs": sc["outputs"].get("run_name") or "run name not set"}
+            "outputs": (sc["outputs"].get("run_name") or "run name not set") + (
+                ", limits: " + limit_rule_text(sc["outputs"]) if limits_set(sc["outputs"]) else "")}
 
 
 def _fmt(v):

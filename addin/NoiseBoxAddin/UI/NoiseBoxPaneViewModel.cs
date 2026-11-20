@@ -179,7 +179,15 @@ namespace NoiseBoxAddin.UI
             }
         }
 
-        public string OutputsSummary => string.IsNullOrEmpty(Doc.GetString("outputs.run_name")) ? "Run name not set" : Doc.GetString("outputs.run_name");
+        public string OutputsSummary
+        {
+            get
+            {
+                string run = string.IsNullOrEmpty(Doc.GetString("outputs.run_name")) ? "Run name not set" : Doc.GetString("outputs.run_name");
+                int nl = (Doc.GetDouble("outputs.limit_dba").HasValue ? 1 : 0) + LimitRows.Count(r => ScenarioDoc.TryParseNumber(r.Text, out _));
+                return nl == 0 ? run : run + ", " + nl + " limit" + (nl == 1 ? "" : "s");
+            }
+        }
 
         private static string Fmt(double? v) => v.HasValue ? v.Value.ToString("0.###", CultureInfo.InvariantCulture) : "?";
 
@@ -190,7 +198,8 @@ namespace NoiseBoxAddin.UI
                                       nameof(PropagationSummary), nameof(OutputsSummary), nameof(UseMatchDtm), nameof(SeparateG), nameof(LongTerm),
                                       nameof(DirectionalMode), nameof(AreaModeText), nameof(ScreeningOn) })
                 NotifyPropertyChanged(n);
-            foreach (var r in LwRows.Concat(DcRows)) r.Refresh();
+            foreach (var r in LwRows.Concat(DcRows).Concat(LimitRows)) r.Refresh();
+            NotifyPropertyChanged(nameof(LimitRuleText)); NotifyPropertyChanged(nameof(LimitWeightA));
             SpectrumVersion++;
             NotifyPropertyChanged(nameof(SpectrumVersion));
             _debounce.Stop();
@@ -261,15 +270,17 @@ namespace NoiseBoxAddin.UI
         // ---------------------------------------------------------------- band tables (Lw, Dc)
         public ObservableCollection<BandRow> LwRows { get; } = new ObservableCollection<BandRow>();
         public ObservableCollection<BandRow> DcRows { get; } = new ObservableCollection<BandRow>();
+        public ObservableCollection<BandRow> LimitRows { get; } = new ObservableCollection<BandRow>();
         public static readonly int[] Bands = { 63, 125, 250, 500, 1000, 2000, 4000, 8000 };
 
         private void BuildBandRows()
         {
-            LwRows.Clear(); DcRows.Clear();
+            LwRows.Clear(); DcRows.Clear(); LimitRows.Clear(); Doc.EnsureDefaults();
             for (int i = 0; i < 8; i++)
             {
                 LwRows.Add(new BandRow(() => Doc, "source.spectrum.lw", i, Bands[i]));
                 DcRows.Add(new BandRow(() => Doc, "source.directivity.dc", i, Bands[i]));
+                LimitRows.Add(new BandRow(() => Doc, "outputs.limit_bands", i, Bands[i]));
             }
         }
 

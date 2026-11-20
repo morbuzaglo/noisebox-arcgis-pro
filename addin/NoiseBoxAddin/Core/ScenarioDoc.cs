@@ -21,7 +21,20 @@ namespace NoiseBoxAddin.Core
         public bool Dirty { get; private set; }
         public event Action Changed;
 
-        private ScenarioDoc(JsonObject root) { Root = root; }
+        private ScenarioDoc(JsonObject root) { Root = root; EnsureDefaults(); }
+
+        /// <summary>Fields added after a scenario file was written (per-band limits): fill them so older files open unchanged.</summary>
+        public void EnsureDefaults()
+        {
+            if (Root["outputs"] is not JsonObject o) return;
+            if (o["limit_bands"] is not JsonArray a || a.Count != 8)
+            {
+                var na = new JsonArray();
+                for (int i = 0; i < 8; i++) na.Add((JsonNode)null);
+                o["limit_bands"] = na;
+            }
+            if (o["limit_band_weighting"] == null) o["limit_band_weighting"] = "A";
+        }
 
         public static ScenarioDoc CreateNew(string name)
         {

@@ -19,6 +19,8 @@ TESTS = [
     ("Original toolbox vs the MATLAB core (raster, bands, every detail field)", "test_synthetic.py", True, True),
     ("Original toolbox: hot reload, 2 sources, drawn inputs, polygon area, DEM, receivers, compare", "test_other.py", True, True),
     ("Scenario runs on the MATLAB core: baseline, barrier, enclosure, Dc, C0, G, outputs, previews, snapshot", "test_scenario_engine.py", True, True),
+    ("MATLAB engine modes: warm engine == fresh MATLAB, hot reload of an edited .m, faster from the 2nd run", "test_engine.py", True, True),
+    ("Allowed levels: overall dB(A) and per-band limits, one exceeded limit = FAIL", "test_limits.py", True, True),
     ("All toolbox tools through ArcPy's geoprocessing framework (incl. Run Scenario)", "test_pyt.py", True, True),
 ]
 lines = []

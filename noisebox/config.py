@@ -31,6 +31,49 @@ def worker_script():
     return os.path.join(ROOT, "worker", "nb_worker.py")
 
 
+def server_script():
+    return os.path.join(ROOT, "worker", "nb_server.py")
+
+
+def user_dir():
+    """%LOCALAPPDATA%\\NoiseBox (engine state, logs). Created on demand."""
+    d = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "NoiseBox")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _config_value(key, default=None):
+    cfg = os.path.join(ROOT, "config.json")
+    if os.path.isfile(cfg):
+        try:
+            with open(cfg, "r", encoding="utf-8") as f:
+                v = (json.load(f) or {}).get(key)
+            if v is not None:
+                return v
+        except (OSError, ValueError):
+            pass
+    return default
+
+
+ENGINE_MODES = ("warm", "fresh")
+
+
+def engine_mode():
+    """How MATLAB is run. "warm" (default): one MATLAB process is started on the first run and reused by the next runs
+    (it reloads the .m files by itself when one of them changed); it quits after `engine_idle_minutes` without a job.
+    "fresh": a new MATLAB for every run (the original behaviour: slowest start, nothing stays in memory).
+    Set with the environment variable NOISEBOX_ENGINE or "engine" in <toolbox>/config.json."""
+    m = (os.environ.get("NOISEBOX_ENGINE") or _config_value("engine", "warm") or "warm").strip().lower()
+    return m if m in ENGINE_MODES else "warm"
+
+
+def engine_idle_minutes():
+    try:
+        return max(1.0, float(_config_value("engine_idle_minutes", 30)))
+    except (TypeError, ValueError):
+        return 30.0
+
+
 def find_python310():
     """Return the python.exe of the Python 3.10 environment that has the MATLAB Engine.
 

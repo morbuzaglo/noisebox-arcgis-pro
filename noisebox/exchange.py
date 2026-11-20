@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -27,11 +28,159 @@ def _tail(path, n=25):
         return ""
 
 
+# ---------------------------------------------------------------------------------------------- warm engine
+def _state_path():
+    return os.path.join(config.user_dir(), "engine.json")
+
+
+def _rpc(state, req, timeout=10.0):
+    """One request/response with the warm server. Raises OSError / ValueError when it is not reachable."""
+    req = dict(req, token=state["token"])
+    with socket.create_connection(("127.0.0.1", int(state["port"])), timeout=timeout) as s:
+        s.sendall((json.dumps(req) + "\n").encode("utf-8"))
+        s.settimeout(timeout)
+        buf = b""
+        while not buf.endswith(b"\n"):
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+    return json.loads(buf.decode("utf-8"))
+
+
+def _read_state():
+    with open(_state_path(), "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def engine_status():
+    """dict(running, pid, port, jobs, started, matlab_version, idle_minutes, mode) of the warm engine."""
+    try:
+        r = _rpc(_read_state(), {"cmd": "ping"}, timeout=5.0)
+        if r.get("ok"):
+            s = r["state"]
+            return {"running": True, "pid": s["pid"], "port": s["port"], "jobs": s.get("jobs", 0), "started": s.get("started"),
+                    "matlab_version": s.get("matlab_version"), "idle_minutes": s.get("idle_minutes"), "mode": config.engine_mode()}
+    except (OSError, ValueError, KeyError):
+        pass
+    return {"running": False, "mode": config.engine_mode()}
+
+
+def engine_stop():
+    """Ask the warm engine to quit (frees the MATLAB memory). Returns True when one was running."""
+    try:
+        st = _read_state()
+    except (OSError, ValueError):
+        return False
+    try:
+        _rpc(st, {"cmd": "stop"}, timeout=10.0)
+        return True
+    except (OSError, ValueError):
+        try:
+            subprocess.run(["taskkill", "/PID", str(st.get("pid")), "/T", "/F"], capture_output=True, timeout=30)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            os.remove(_state_path())
+        except OSError:
+            pass
+        return True
+
+
+def _ensure_server(on_progress=None, is_cancelled=None, timeout=300.0):
+    """Return the state of a running warm server, starting one (detached) when needed."""
+    if engine_status().get("running"):
+        return _read_state()
+    py = config.find_python310()
+    lock = os.path.join(config.user_dir(), "engine.lock")
+    mine = False
+    try:
+        if os.path.isfile(lock) and time.time() - os.path.getmtime(lock) > timeout:
+            os.remove(lock)
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+        mine = True
+    except OSError:
+        pass  # somebody else is starting it: just wait for it
+    t0 = time.time()
+    try:
+        if mine:
+            try:
+                os.remove(_state_path())
+            except OSError:
+                pass
+            log = open(os.path.join(config.user_dir(), "engine.log"), "a", encoding="utf-8")
+            # NOT DETACHED_PROCESS: tested, MATLAB's engine then needs ~19 minutes to start instead of 6 s.
+            # A hidden window + own process group keeps it alive after the calling process ends; CREATE_BREAKAWAY_FROM_JOB
+            # also lets it survive ArcGIS Pro's job object when that allows it.
+            args = [py, "-u", config.server_script(), _state_path(), str(config.engine_idle_minutes())]
+            base = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            for flags in (base | 0x01000000, base):
+                try:
+                    subprocess.Popen(args, cwd=config.user_dir(), stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                     env=config.clean_env(), close_fds=True, creationflags=flags)
+                    break
+                except OSError:
+                    continue
+        while time.time() - t0 < timeout:
+            if is_cancelled and is_cancelled():
+                raise NoiseBoxError("Cancelled.")
+            if on_progress:
+                on_progress(0, 1, "Starting MATLAB (first run only, then it stays ready) ... %d s" % int(time.time() - t0))
+            if engine_status().get("running"):
+                return _read_state()
+            time.sleep(1.0)
+    finally:
+        if mine:
+            try:
+                os.remove(lock)
+            except OSError:
+                pass
+    raise NoiseBoxError("The MATLAB engine did not start within %d s. See %s" % (timeout, os.path.join(config.user_dir(), "engine.log")))
+
+
+def _run_warm(job_path, work, on_progress, is_cancelled):
+    state = _ensure_server(on_progress, is_cancelled)
+    prog_path = os.path.join(work, "progress.json")
+    last = None
+    with socket.create_connection(("127.0.0.1", int(state["port"])), timeout=10.0) as s:
+        s.sendall((json.dumps({"cmd": "run", "job": job_path, "token": state["token"]}) + "\n").encode("utf-8"))
+        s.settimeout(0.4)
+        buf = b""
+        while not buf.endswith(b"\n"):
+            if is_cancelled and is_cancelled():
+                try:
+                    subprocess.run(["taskkill", "/PID", str(state["pid"]), "/T", "/F"], capture_output=True, timeout=30)
+                    os.remove(_state_path())
+                except Exception:  # noqa: BLE001
+                    pass
+                raise NoiseBoxError("Cancelled.")
+            try:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                buf += chunk
+            except socket.timeout:
+                pass
+            if on_progress:
+                try:
+                    with open(prog_path, "r", encoding="utf-8") as f:
+                        p = json.load(f)
+                    if p != last:
+                        last = p
+                        on_progress(p.get("done"), p.get("total"), p.get("msg", ""))
+                except (OSError, ValueError):
+                    pass
+    with open(os.path.join(work, "worker.log"), "w", encoding="utf-8") as f:
+        f.write("warm engine pid %s\n" % state["pid"])
+
+
 def run_job(job, arrays=None, on_progress=None, is_cancelled=None):
-    """Write the job (+ optional float64 arrays) to a temp folder, run the worker, read result.json.
+    """Write the job (+ optional float64 arrays) to a temp folder, run it in MATLAB, read result.json.
 
     arrays: {filename: numpy array} written as raw float64 in Fortran order (MATLAB layout).
     Returns (result_dict, work_dir). The caller reads output files from work_dir, then calls cleanup().
+    The way MATLAB is run depends on config.engine_mode(): "warm" (one MATLAB kept ready between runs) or "fresh".
     """
     py = config.find_python310()
     work = tempfile.mkdtemp(prefix="noisebox_")
@@ -47,35 +196,48 @@ def run_job(job, arrays=None, on_progress=None, is_cancelled=None):
         with open(job_path, "w", encoding="utf-8") as f:
             json.dump(job, f)
         log_path = os.path.join(work, "worker.log")
-        with open(log_path, "w", encoding="utf-8") as log:
-            proc = subprocess.Popen(
-                [py, "-u", config.worker_script(), job_path], cwd=work, stdout=log, stderr=subprocess.STDOUT,
-                env=config.clean_env(),
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            prog_path = os.path.join(work, "progress.json")
-            last = None
-            while proc.poll() is None:
-                time.sleep(0.4)
-                if is_cancelled and is_cancelled():
-                    _kill_tree(proc)
-                    raise NoiseBoxError("Cancelled.")
-                if on_progress:
-                    try:
-                        with open(prog_path, "r", encoding="utf-8") as f:
-                            p = json.load(f)
-                        if p != last:
-                            last = p
-                            on_progress(p.get("done"), p.get("total"), p.get("msg", ""))
-                    except (OSError, ValueError):
-                        pass
         res_path = os.path.join(work, "result.json")
+        if config.engine_mode() == "warm":
+            try:
+                _run_warm(job_path, work, on_progress, is_cancelled)
+            except (OSError, ValueError):
+                # the engine process died or is unreachable: drop its state, start a new one once, and retry
+                try:
+                    os.remove(_state_path())
+                except OSError:
+                    pass
+                if os.path.isfile(res_path):
+                    os.remove(res_path)
+                _run_warm(job_path, work, on_progress, is_cancelled)
+        else:
+            with open(log_path, "w", encoding="utf-8") as log:
+                proc = subprocess.Popen(
+                    [py, "-u", config.worker_script(), job_path], cwd=work, stdout=log, stderr=subprocess.STDOUT,
+                    env=config.clean_env(),
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                prog_path = os.path.join(work, "progress.json")
+                last = None
+                while proc.poll() is None:
+                    time.sleep(0.4)
+                    if is_cancelled and is_cancelled():
+                        _kill_tree(proc)
+                        raise NoiseBoxError("Cancelled.")
+                    if on_progress:
+                        try:
+                            with open(prog_path, "r", encoding="utf-8") as f:
+                                p = json.load(f)
+                            if p != last:
+                                last = p
+                                on_progress(p.get("done"), p.get("total"), p.get("msg", ""))
+                        except (OSError, ValueError):
+                            pass
         if not os.path.isfile(res_path):
-            raise NoiseBoxError("The MATLAB worker ended without a result (exit code %s). Log tail:\n%s"
-                                % (proc.returncode, _tail(log_path)))
+            raise NoiseBoxError("The MATLAB worker ended without a result. Log tail:\n%s" % _tail(log_path))
         with open(res_path, "r", encoding="utf-8") as f:
             res = json.load(f)
         if not res.get("ok"):
             raise NoiseBoxError("MATLAB worker error: %s\n%s" % (res.get("error"), res.get("trace", "")))
+        res.setdefault("engine", {"mode": "fresh"})
         return res, work
     except BaseException:
         cleanup(work)

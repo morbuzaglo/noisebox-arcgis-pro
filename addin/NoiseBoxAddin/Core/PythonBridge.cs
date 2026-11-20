@@ -112,6 +112,7 @@ namespace NoiseBoxAddin.Core
         public static Task<JsonObject> ParseSpectrumTextAsync(string text) => CallAsync("parse-spectrum", "--text", text);
         public static Task<JsonObject> ParseSpectrumCsvAsync(string path) => CallAsync("parse-spectrum", "--csv", path);
         public static Task<JsonObject> DtmInfoAsync(string path) => CallAsync("dtm-info", path);
+        public static Task<JsonObject> EngineAsync(string action) => CallAsync("engine", action);
         public static Task<JsonObject> AtmosphereAsync(ScenarioDoc doc) => OnScenarioAsync("atmosphere", doc);
         public static Task<JsonObject> MaterialAsync(JsonNode faceMaterial) => CallAsync("material", faceMaterial.ToJsonString());
         public static Task<JsonObject> ProfilesAsync(string action, string name = null, string lw = null)

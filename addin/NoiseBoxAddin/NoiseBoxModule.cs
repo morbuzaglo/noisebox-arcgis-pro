@@ -52,7 +52,7 @@ namespace NoiseBoxAddin
     {
         private static NoiseBoxModule _this;
 
-        public NoiseBoxModule() { Log.Hook(); }
+        public NoiseBoxModule() { Log.Hook(); Automation.Start(); }
 
         public static NoiseBoxModule Current => _this ??= (NoiseBoxModule)FrameworkApplication.FindModule("NoiseBox_Module");
 

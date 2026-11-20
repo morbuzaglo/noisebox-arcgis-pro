@@ -22,7 +22,7 @@ MAP = {
     "SetLocation_PlaceOnMap": ("pin", "source"), "PlaceSourceTool": ("pin", "source"), "MoveSourceTool": ("move", "source"),
     "PickSourceTool": ("pick", "source"), "HeadingTool": ("heading", "source"), "Spectrum": ("bars", "source"),
     "Directivity": ("wedge", "source"),
-    "Dtm_FromProject": ("mountain", "terrain"), "Dtm_Browse": ("folder", "terrain"), "Dtm_Coverage": ("coverage", "terrain"),
+    "Dtm_FromProject": ("mountain", "terrain"), "Dtm_Browse": ("folder", "terrain"), "Dtm_Ground": ("mountain", "terrain"), "Dtm_Coverage": ("coverage", "terrain"),
     "Dtm_None": ("flat", "terrain"), "Area_Polygons": ("polygon", "terrain"), "Area_DrawPolygon": ("polygon", "terrain"),
     "Area_DrawRectangle": ("rect", "terrain"), "Area_Radius": ("radius", "terrain"), "Area_MapExtent": ("extent", "terrain"),
     "AreaPolygonTool": ("polygon", "terrain"), "AreaRectangleTool": ("rect", "terrain"), "ReceiverGrid": ("grid", "terrain"),
