@@ -79,7 +79,9 @@ namespace NoiseBoxAddin.Core
 
         private static CIMColor C(int r, int g, int b, int a = 255) => ColorFactory.Instance.CreateRGBColor(r, g, b, a);
 
-        private static bool SyncCore(ScenarioDoc doc, JsonObject preview)
+        private static string _gdbName = GdbName;
+
+        private static bool SyncCore(ScenarioDoc doc, JsonObject preview, bool retry = true)
         {
             var mv = MapView.Active;
             var map = mv?.Map;
@@ -93,33 +95,78 @@ namespace NoiseBoxAddin.Core
             var specs = BuildSpecs(doc, preview, sr, wkid);
             bool any = specs.Any(s => s.Rows.Count > 0);
             Log.Write("SYNC start: wkid " + wkid + ", rows " + string.Join(",", specs.Select(s => s.Fc + "=" + s.Rows.Count)));
-            string gdbPath = Path.Combine(Project.Current.HomeFolderPath, GdbName);
+            string gdbPath = Path.Combine(Project.Current.HomeFolderPath, _gdbName);
             if (!any && !Directory.Exists(gdbPath)) return true;                     // nothing to show yet, nothing to create
 
             var conn = new FileGeodatabaseConnectionPath(new Uri(gdbPath));
             if (!Directory.Exists(gdbPath)) SchemaBuilder.CreateGeodatabase(conn);
-            using (var gdb = new Geodatabase(conn))
+            // 0. layers of this group keep a schema lock on their feature classes: when the classes have to be replaced or created,
+            //    take the group out of the map first (it is rebuilt below), otherwise the schema change fails
+            bool needsSchema;
+            using (var g0 = new Geodatabase(conn))
             {
-                var existing = gdb.GetDefinitions<FeatureClassDefinition>().ToDictionary(d => d.GetName(), d => d);
-                var sb = new SchemaBuilder(gdb);
-                bool changed = false;
-                foreach (var s in specs)
+                var ex0 = g0.GetDefinitions<FeatureClassDefinition>().ToDictionary(d => d.GetName(), d => d);
+                needsSchema = any && specs.Any(sp => !ex0.TryGetValue(sp.Fc, out var d0) || ProApi.Wkid(d0.GetSpatialReference()) != wkid ||
+                                                     d0.GetShapeType() != sp.Type || !d0.GetFields().Any(f => f.Name == "Include"));
+            }
+            if (needsSchema)
+            {
+                foreach (var old in map.GetLayersAsFlattenedList().OfType<GroupLayer>().Where(g => g.Name == GroupName).ToList()) map.RemoveLayer(old);
+                GC.Collect(); GC.WaitForPendingFinalizers();
+                System.Threading.Thread.Sleep(500);
+                Log.Write("SYNC schema change: input layers removed from the map and rebuilt");
+            }
+
+            try
+            {
+                // 1. feature classes that exist with another coordinate system / layout are deleted first (a separate schema step:
+                //    deleting and creating the same name in one step fails with "already exists")
+                using (var gdb = new Geodatabase(conn))
                 {
-                    if (existing.TryGetValue(s.Fc, out var def))
+                    var existing = gdb.GetDefinitions<FeatureClassDefinition>().ToDictionary(d => d.GetName(), d => d);
+                    var del = new SchemaBuilder(gdb);
+                    bool anyDelete = false;
+                    foreach (var s in specs)
                     {
-                        if (ProApi.Wkid(def.GetSpatialReference()) == wkid && def.GetShapeType() == s.Type && def.GetFields().Any(f => f.Name == "Include")) continue;
-                        sb.Delete(new FeatureClassDescription(def));                  // different CRS or an older layout: recreate
+                        if (!existing.TryGetValue(s.Fc, out var def)) continue;
+                        int dw = ProApi.Wkid(def.GetSpatialReference());
+                        bool ok = dw == wkid && def.GetShapeType() == s.Type && def.GetFields().Any(f => f.Name == "Include");
+                        if (ok) continue;
+                        Log.Write($"SYNC recreate {s.Fc}: layer wkid {dw} vs {wkid}, shape {def.GetShapeType()} vs {s.Type}");
+                        del.Delete(new FeatureClassDescription(def));
+                        anyDelete = true;
                     }
-                    if (!any) continue;
-                    sb.Create(new FeatureClassDescription(s.Fc, FieldsFor(s.Type), new ShapeDescription(s.Type, sr)));
-                    changed = true;
+                    if (anyDelete && !del.Build()) throw new InvalidOperationException("Could not replace the NoiseBox input feature classes: " + string.Join("; ", del.ErrorMessages));
                 }
-                if (changed || existing.Values.Any(d => specs.Any(s => s.Fc == d.GetName() && (ProApi.Wkid(d.GetSpatialReference()) != wkid))))
+                // 2. create what is missing
+                using (var gdb = new Geodatabase(conn))
                 {
-                    bool built = sb.Build();
-                    Log.Write("INPUT LAYERS schema build " + (built ? "ok" : "FAILED: " + string.Join("; ", sb.ErrorMessages)));
-                    if (!built) throw new InvalidOperationException("Could not create the NoiseBox input feature classes: " + string.Join("; ", sb.ErrorMessages));
+                    var existing = gdb.GetDefinitions<FeatureClassDefinition>().Select(d => d.GetName()).ToHashSet();
+                    var sb = new SchemaBuilder(gdb);
+                    bool changed = false;
+                    foreach (var s in specs)
+                    {
+                        if (existing.Contains(s.Fc) || !any) continue;
+                        sb.Create(new FeatureClassDescription(s.Fc, FieldsFor(s.Type), new ShapeDescription(s.Type, sr)));
+                        changed = true;
+                    }
+                    if (changed)
+                    {
+                        bool built = sb.Build();
+                        Log.Write("INPUT LAYERS schema build " + (built ? "ok" : "FAILED: " + string.Join("; ", sb.ErrorMessages)));
+                        if (!built) throw new InvalidOperationException("Could not create the NoiseBox input feature classes: " + string.Join("; ", sb.ErrorMessages));
+                    }
                 }
+            }
+            catch (InvalidOperationException) when (retry)
+            {
+                // the geodatabase is only derived data (rebuilt from the scenario): replace a damaged one and try once more
+                foreach (var old in map.GetLayersAsFlattenedList().OfType<GroupLayer>().Where(g => g.Name == GroupName).ToList()) map.RemoveLayer(old);
+                GC.Collect(); GC.WaitForPendingFinalizers();
+                try { Directory.Delete(gdbPath, true); }
+                catch { _gdbName = "NoiseBox_inputs_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".gdb"; }
+                Log.Write("SYNC repair: geodatabase replaced (" + _gdbName + ")");
+                return SyncCore(doc, preview, false);
             }
 
             using (var gdb = new Geodatabase(conn))

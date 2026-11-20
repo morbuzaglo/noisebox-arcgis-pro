@@ -12,7 +12,7 @@ ROOT = os.path.dirname(HERE)
 out = sys.argv[1]
 os.makedirs(out, exist_ok=True)
 TESTS = [
-    ("Scenario validation, geometry, spectrum input, source methods (256-entry catalogue)", "test_scenario.py", True, False),
+    ("Scenario validation, geometry, spectrum input, source methods (260-entry catalogue)", "test_scenario.py", True, False),
     ("Command line used by the add-in (JSON, DTM coverage)", "test_cli.py", True, False),
     ("Add-in package: DAML vs Esri schema, classNames, refIDs, zip layout", "check_addin_package.py", False, False),
     ("Add-in pane: XAML bindings, handlers, converters, focus targets", "check_xaml_bindings.py", False, False),

@@ -1,6 +1,7 @@
 """Writing results (rasters, polygons, tables) and adding them to the active map in groups. Needs arcpy."""
 import math
 import os
+import time
 
 import numpy as np
 
@@ -171,6 +172,7 @@ class MapSink:
         self.log = log
         self.m = None
         self.aprx = None
+        self.failed = False
         if not enabled:
             return
         arcpy = _arcpy()
@@ -209,7 +211,15 @@ class MapSink:
         """Add a dataset to `group` (or the map root), rename it, optionally style it."""
         if not self.on:
             return None
-        lyr = self.m.addDataFromPath(path)
+        if self.failed:
+            return None
+        try:
+            lyr = self.m.addDataFromPath(path)
+        except RuntimeError as e:                      # seen inside Pro's geoprocessing context: the add-in adds the layers itself then
+            self.failed = True
+            self.log.warn("The result layers could not be added to the map by the tool (%s); the add-in adds them instead. "
+                          "The data is saved in the geodatabase." % e)
+            return None
         if group is not None:
             self.m.addLayerToGroup(group, lyr)
             self.m.removeLayer(lyr)

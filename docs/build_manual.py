@@ -1,5 +1,6 @@
-"""Builds docs/NoiseBox_Manual.html and the PDF (Edge headless print). Run with propy after make_manual_figures.py and
-make_schematics.py:   propy docs\\build_manual.py"""
+"""Builds docs/NoiseBox_Manual.html and the PDF (Edge headless print). Run with propy:   propy docs\\build_manual.py
+All pictures of the software are REAL screenshots taken from ArcGIS Pro 3.5.3 while the worked example was run by the
+automated test (docs/figures/ui). The result maps and numbers come from the geodatabase of those runs."""
 import html
 import json
 import os
@@ -11,19 +12,29 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from noisebox import issues as I  # noqa: E402
 
-FIG = json.load(open(os.path.join(HERE, "figures", "figures.json"), encoding="utf-8"))
-TS = {}
-if os.path.isfile(os.path.join(HERE, "test_summary.json")):
-    TS = json.load(open(os.path.join(HERE, "test_summary.json"), encoding="utf-8"))
-
+UI = os.path.join(HERE, "figures", "ui")
+NUM = json.load(open(os.path.join(UI, "example_numbers.json"), encoding="utf-8")) if os.path.isfile(os.path.join(UI, "example_numbers.json")) else {}
+TS = json.load(open(os.path.join(HERE, "test_summary.json"), encoding="utf-8")) if os.path.isfile(os.path.join(HERE, "test_summary.json")) else {}
+VERSION = "1.20"
 SECTION_NAMES = {"SCN": "Scenario file and coordinate system", "SRC": "Source location and height", "SPC": "Source spectrum",
                  "DIR": "Directivity", "DTM": "Terrain (DTM)", "ARA": "Receiver area and grid", "STR": "Structures (general)",
                  "BLD": "Buildings", "BAR": "Noise barriers", "ENC": "Enclosures", "PRP": "Propagation settings",
-                 "OUT": "Outputs", "ENG": "Engine and run"}
+                 "OUT": "Outputs and allowed levels", "ENG": "Engine and run"}
 
 
 def esc(s):
     return html.escape(str(s))
+
+
+def fig(name, cap, width="100%", small=False):
+    path = os.path.join(UI, name)
+    if not os.path.isfile(path):
+        return "<div class='box bad'>missing figure %s</div>" % esc(name)
+    return "<div class='fig'><img src='figures/ui/%s' style='max-width:%s'><div class='cap'>%s</div></div>" % (name, width, esc(cap))
+
+
+def fnum(x, d=1):
+    return "?" if x is None else ("%.*f" % (d, x))
 
 
 def catalogue_html():
@@ -39,235 +50,305 @@ def catalogue_html():
     return "\n".join(out)
 
 
-def table_rows():
-    return "".join("<tr><td>%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td></tr>" % (r["name"], r["A"], r["B"], r["C"]) for r in FIG["table"])
+def step(n, title, text):
+    return "<div class='step'><div class='num'>%s</div><div class='body'><b>%s</b><br>%s</div></div>" % (n, title, text)
 
 
 css = """
-@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+@page { size: A4; margin: 17mm 15mm 17mm 15mm; }
 * { box-sizing: border-box; }
-body { font-family: 'Segoe UI', Arial, sans-serif; color: #1c2430; font-size: 10.3pt; line-height: 1.45; }
+body { font-family: 'Segoe UI', Arial, sans-serif; color: #1c2430; font-size: 10pt; line-height: 1.45; }
 h1 { font-size: 27pt; color: #1f3b5c; margin: 0 0 4pt 0; }
-h2 { font-size: 16pt; color: #1f3b5c; border-bottom: 2px solid #2f6fa8; padding-bottom: 3pt; margin-top: 22pt; page-break-after: avoid; }
-h3 { font-size: 12pt; color: #2f6fa8; margin: 14pt 0 4pt; page-break-after: avoid; }
+h2 { font-size: 15.5pt; color: #1f3b5c; border-bottom: 2px solid #2f6fa8; padding-bottom: 3pt; margin-top: 20pt; page-break-after: avoid; }
+h3 { font-size: 11.8pt; color: #2f6fa8; margin: 13pt 0 4pt; page-break-after: avoid; }
 .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
 .cover .sub { font-size: 14pt; color: #4b5563; margin-bottom: 26pt; }
 .cover .meta { color: #6b7280; font-size: 10pt; border-top: 1px solid #d1d5db; padding-top: 8pt; margin-top: 26pt; }
 .pb { page-break-before: always; }
-.box { border-left: 4px solid #2f6fa8; background: #eef4fb; padding: 7pt 10pt; margin: 8pt 0; page-break-inside: avoid; }
-.warn { border-left-color: #d9822b; background: #fff6ea; }
-.bad { border-left-color: #b42318; background: #fdecea; }
-.ok { border-left-color: #2e7d32; background: #edf7ee; }
-table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 9.4pt; page-break-inside: auto; }
+.box { border-left: 4px solid #2f6fa8; background: #eef4fb; padding: 6pt 10pt; margin: 8pt 0; page-break-inside: avoid; }
+.warn { border-left-color: #d9822b; background: #fff6ea; } .bad { border-left-color: #b42318; background: #fdecea; } .ok { border-left-color: #2e7d32; background: #edf7ee; }
+table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 9.2pt; }
 th { background: #1f3b5c; color: white; text-align: left; padding: 4pt 6pt; }
-td { border-bottom: 1px solid #e5e7eb; padding: 3.5pt 6pt; vertical-align: top; }
-tr { page-break-inside: avoid; }
-table.cat { font-size: 7.6pt; } table.cat td { padding: 2pt 4pt; }
-table.cat tr.error td:nth-child(2) { color: #b42318; font-weight: 600; }
-table.cat tr.warning td:nth-child(2) { color: #b26200; font-weight: 600; }
-table.cat tr.info td:nth-child(2) { color: #6b7280; }
-.step { display: flex; gap: 9pt; margin: 9pt 0; page-break-inside: avoid; }
+td { border-bottom: 1px solid #e5e7eb; padding: 3.3pt 6pt; vertical-align: top; } tr { page-break-inside: avoid; }
+table.cat { font-size: 7.5pt; } table.cat td { padding: 2pt 4pt; }
+table.cat tr.error td:nth-child(2) { color: #b42318; font-weight: 600; } table.cat tr.warning td:nth-child(2) { color: #b26200; font-weight: 600; } table.cat tr.info td:nth-child(2) { color: #6b7280; }
+.step { display: flex; gap: 9pt; margin: 8pt 0; page-break-inside: avoid; }
 .num { flex: 0 0 22pt; height: 22pt; border-radius: 50%; background: #2f6fa8; color: white; text-align: center; line-height: 22pt; font-weight: 700; }
 .step .body { flex: 1; }
-.fig { text-align: center; margin: 8pt 0; page-break-inside: avoid; }
-.fig img { max-width: 100%; }
-.cap { font-size: 8.6pt; color: #6b7280; margin-top: 2pt; }
+.fig { text-align: center; margin: 7pt 0; page-break-inside: avoid; } .fig img { border: 1px solid #d1d5db; }
+.cap { font-size: 8.5pt; color: #6b7280; margin-top: 2pt; }
 .two { display: flex; gap: 12pt; align-items: flex-start; } .two > div { flex: 1; }
-code, .k { font-family: Consolas, monospace; background: #f1f3f5; padding: 0 3pt; border-radius: 2pt; font-size: 9.2pt; }
-pre { background: #f1f3f5; padding: 7pt 9pt; border-radius: 4pt; font-size: 8.8pt; overflow: hidden; white-space: pre-wrap; }
-.toc a { color: #1f3b5c; text-decoration: none; } .toc li { margin: 2pt 0; }
-.yes { color: #2e7d32; font-weight: 600; } .no { color: #b42318; font-weight: 600; } .part { color: #b26200; font-weight: 600; }
+.pane { display: flex; gap: 12pt; align-items: flex-start; } .pane .fig { flex: 0 0 41%; margin: 0; } .pane .txt { flex: 1; }
+code, .k { font-family: Consolas, monospace; background: #f1f3f5; padding: 0 3pt; border-radius: 2pt; font-size: 9pt; }
+pre { background: #f1f3f5; padding: 7pt 9pt; border-radius: 4pt; font-size: 8.6pt; white-space: pre-wrap; }
+.toc li { margin: 2pt 0; } .yes { color: #2e7d32; font-weight: 600; } .no { color: #b42318; font-weight: 600; } .part { color: #b26200; font-weight: 600; }
 ul, ol { margin: 4pt 0 4pt 18pt; padding: 0; }
 """
 
-tests = [[a, b.replace(": 1 checks passed, 0 failed", ": overall result PASS")] for a, b in TS.get("lines", [])]
-tests_html = "".join("<tr><td>%s</td><td>%s</td></tr>" % (esc(a), esc(b)) for a, b in tests)
+tests_html = "".join("<tr><td>%s</td><td>%s</td></tr>" % (esc(a), esc(b)) for a, b in TS.get("lines", []))
+A, B = NUM.get("A", {}), NUM.get("B", {})
+sA, sB = NUM.get("summary_A", {}), NUM.get("summary_B", {})
 
 body = f"""
 <div class="cover">
   <h1>NoiseBox for ArcGIS Pro</h1>
-  <div class="sub">User manual: outdoor noise mapping to ISO 9613-2, with a worked example</div>
-  <div class="box warn"><b>Status of this version.</b> The calculation engine, the scenario files, the checks and the Python tools are built and tested
-  (section 9). The ribbon tab and dockable pane (the <i>add-in</i>) are <b>compiled and packaged</b> (<code>dist\\NoiseBox.esriAddinX</code>) and pass static checks
-  (Esri's DAML schema, class names, XAML bindings), but they have <b>never been loaded or clicked in ArcGIS Pro</b>: no automated way to drive Pro's window was available.
-  Pictures of the ribbon and pane in this manual are therefore <b>schematic drawings</b> made from the design, not screenshots. Every map, chart and number in the
-  worked example is <b>real output</b> of the engine. Please report anything that behaves differently from this manual when you first use the ribbon.</div>
+  <div class="sub">User manual: installation, every setting, and a worked example with screenshots</div>
+  <div class="box ok"><b>Status of this version ({VERSION}).</b> The ribbon add-in was installed in <b>ArcGIS Pro 3.5.3</b> and used
+  on this computer: every screenshot in this manual is a real screenshot of the running software, and the worked example (section 8) was run from
+  the pane, through MATLAB R2023a, to results in Contents. What was <i>not</i> tested is listed in section 13.</div>
   <div class="meta">ArcGIS Pro 3.5 or later &nbsp;|&nbsp; MATLAB R2022b to R2024b (tested: R2023a) &nbsp;|&nbsp; Python 3.10 for the MATLAB link<br>
-  Prediction method: ISO 9613-2:2024 (default), draft amendment and 1996 edition selectable &nbsp;|&nbsp; No ISO certification or conformance is claimed.</div>
+  Prediction method: ISO 9613-2:2024 (default), the draft amendment and the 1996 edition selectable &nbsp;|&nbsp; No ISO certification or conformance is claimed.</div>
 </div>
 
 <h2 style="margin-top:0">Contents</h2>
 <ol class="toc">
-<li>What NoiseBox does</li><li>What you need</li><li>Installing on a computer</li><li>The workspace: ribbon and pane</li>
-<li>Worked example: a drill rig, step by step</li><li>Reading the results</li><li>Errors and warnings</li>
-<li>What the engine calculates and what it does not</li><li>What was tested, and what was not</li><li>Troubleshooting</li>
-<li>Appendix A: every error, warning and note</li><li>Appendix B: scenario file and command line</li></ol>
+<li>What NoiseBox does</li><li>What you need</li><li>Installing on a computer</li><li>The workspace: ribbon, pane, Contents</li>
+<li>Every setting, section by section</li><li>Allowed levels: overall and per octave band</li><li>Objects you create appear in Contents</li>
+<li>Worked example: a drill rig behind a 4 m barrier, step by step</li><li>Reading the results</li><li>Speed: the MATLAB engine</li>
+<li>Errors and warnings</li><li>What the engine calculates and what it does not</li><li>What was tested, and what was not</li><li>Troubleshooting</li>
+<li>Appendix A: every error, warning and note &nbsp; B: scenario file, command line, configuration</li></ol>
 
 <h2>1. What NoiseBox does</h2>
 <p>NoiseBox predicts the sound level of a point source at every cell of a grid, the way ISO 9613-2 describes it, and puts the result on your map. You describe a
-<b>scenario</b> (a source and its spectrum, terrain, an area, and optionally buildings, noise barriers and an enclosure around the source). NoiseBox checks it,
-calculates it in your own validated MATLAB code, and adds a named group of rasters to <i>Contents</i>. You can then change one thing (a taller barrier, an enclosure)
-and compare.</p>
-<div class="two"><div>
-<h3>Why the checking is built in</h3>
-<p>Every input is checked before anything runs. A problem is shown as a numbered message that says what is wrong, <i>why</i> it matters, and what to do. Clicking a message takes you to the input. There are {len(I.CATALOGUE)} such messages (Appendix A).</p></div>
+<b>scenario</b>: a source with its sound power spectrum, the terrain, a receiver area and, if you like, buildings, noise barriers and an enclosure around the source.
+NoiseBox checks the scenario, calculates it in <b>your own validated MATLAB code</b> and adds a named group of rasters to <i>Contents</i>. Change one thing (a taller barrier) and run again to compare.</p>
+<div class="two"><div><h3>Checked before anything runs</h3>
+<p>Every input is checked. A problem is a numbered message that says what is wrong, why it matters and what to do; clicking it jumps to the input. There are {len(I.CATALOGUE)} such messages (Appendix A).</p></div>
 <div><h3>How the pieces fit</h3>
-<p>ArcGIS Pro (ribbon + pane) writes a <b>scenario file</b>. Pro's Python reads it and starts a small <b>worker</b> in Python 3.10 that owns MATLAB. MATLAB runs your <code>matlab\\core</code> files. No acoustics are calculated anywhere else, so editing a <code>.m</code> file changes the next run.</p></div></div>
-<h3>Two ways to use it</h3>
-<table><tr><th>Way</th><th>For</th><th>Status</th></tr>
-<tr><td><b>Ribbon tab + pane</b> (the add-in)</td><td>Interactive: pick or draw the source, structures and area on the map, see them update, run, compare.</td><td class="part">Compiled, packaged, statically checked; not yet run inside Pro</td></tr>
-<tr><td><b>Toolbox <code>NoiseBox.pyt</code></b> (6 tools incl. <i>Run Scenario</i>)</td><td>Dialog tools, scripts, batch runs and saved scenario files. Same engine.</td><td class="yes">Built and tested</td></tr></table>
+<p>The ribbon and pane write a <b>scenario file</b>. Pro's Python reads it and sends the numeric job to a small worker in Python 3.10 that owns MATLAB. MATLAB runs the files in <code>matlab\\core</code>. No acoustics are calculated anywhere else, so editing a <code>.m</code> file changes the next run.</p></div></div>
 
-<h2 class="pb">2. What you need</h2>
+<h2>2. What you need</h2>
 <table><tr><th>Item</th><th>Version</th><th>Notes</th></tr>
-<tr><td>ArcGIS Pro</td><td>3.5 or later</td><td>Tested with 3.5.3 (Python 3.11 inside Pro).</td></tr>
-<tr><td>MATLAB</td><td>R2022b to R2024b</td><td>Licensed on that computer. Tested with R2023a. No toolboxes are used.</td></tr>
-<tr><td>Python 3.10 (64-bit)</td><td>3.10.x</td><td>From python.org. Needed only because the MATLAB Engine for Python does not run in Pro's Python 3.11. Used in a separate environment.</td></tr>
-<tr><td>This NoiseBox folder</td><td>&nbsp;</td><td>Copy it anywhere (not inside a folder that OneDrive/Dropbox is syncing is best).</td></tr>
-<tr><td><i>Only to rebuild the ribbon add-in:</i> .NET SDK</td><td>8 or newer</td><td><code>winget install Microsoft.DotNet.SDK.8</code>. The computer that <i>uses</i> the add-in does not need it.</td></tr>
-<tr><td>A DTM raster (optional)</td><td>any single-band elevation raster</td><td>The example uses <code>sample\\dem_sample.tif</code>. For Israel, <code>setup\\make_israel_dem.py</code> downloads SRTM 30 m.</td></tr></table>
+<tr><td>ArcGIS Pro</td><td>3.5 or later</td><td>Tested with 3.5.3.</td></tr>
+<tr><td>MATLAB</td><td>R2022b to R2024b</td><td>Licensed on that computer; no toolboxes are used. Tested with R2023a.</td></tr>
+<tr><td>Python 3.10 (64-bit)</td><td>3.10.x</td><td>From python.org. Needed only because MATLAB's Python engine does not run in Pro's Python 3.11. Used in its own environment.</td></tr>
+<tr><td>The NoiseBox folder</td><td>&nbsp;</td><td>Copy it anywhere (a folder that OneDrive or Dropbox syncs is best avoided).</td></tr>
+<tr><td>A DTM raster (optional)</td><td>any single-band elevation raster</td><td>Or the ground surface of your map. Without a DTM the ground is flat at 0 m.</td></tr>
+<tr><td><i>Only to rebuild the add-in:</i> .NET SDK</td><td>8 or newer</td><td>Not needed to use it.</td></tr></table>
 
-<h2>3. Installing on a computer</h2>
-<p>Do these once per computer. Everything is relative to the NoiseBox folder, so the folder can be moved or copied.</p>
-<div class="step"><div class="num">1</div><div class="body"><b>Copy the folder.</b> Copy the whole <code>noisebox_for_Arc_GIS_pro</code> folder (or clone the GitHub repository) to the new computer, for example <code>C:\\NoiseBox</code>.</div></div>
-<div class="step"><div class="num">2</div><div class="body"><b>Install Python 3.10</b> from python.org if <code>py -3.10 --version</code> does not work in a command window. Tick <i>Add to PATH</i> or <i>py launcher</i>.</div></div>
-<div class="step"><div class="num">3</div><div class="body"><b>Run the setup script.</b> Open PowerShell in the NoiseBox folder and run
-<pre>.\\setup\\setup_noisebox.ps1</pre>
-It creates the Python 3.10 environment in <code>%LOCALAPPDATA%\\NoiseBox\\venv310</code>, installs numpy and the MATLAB Engine for Python from your MATLAB installation (add <code>-MatlabRoot "D:\\MATLAB\\R2023a"</code> if MATLAB is not in <code>C:\\Program Files\\MATLAB</code>), and registers the folder for the add-in.</div></div>
-<div class="step"><div class="num">4</div><div class="body"><b>Add the toolbox in ArcGIS Pro.</b> <i>Catalog pane &gt; Toolboxes &gt; right-click &gt; Add Toolbox</i>, choose <code>NoiseBox.pyt</code>. Run <b>4. Utilities &gt; Check MATLAB Link</b>. Expected: <i>MATLAB link OK</i>, a smoke-test level of about 45.22 dB(A) and matching <code>.m</code> file hashes. This step proves the whole chain works on this computer.</div></div>
-<div class="step"><div class="num">5</div><div class="body"><b>(Ribbon add-in) Get the package.</b> The repository already contains the built package <code>dist\\NoiseBox.esriAddinX</code>; you can skip to step 6. To rebuild it (after changing the source), on a computer with a .NET SDK (8 or newer; built here with 11.0.100, <code>winget install Microsoft.DotNet.SDK.8</code>) and ArcGIS Pro 3.5:
-<pre>.\\setup\\build_addin.ps1</pre>
-The script builds <code>addin\\NoiseBoxAddin</code> and zips <code>Config.daml</code> and the assembly into <code>dist\\NoiseBox.esriAddinX</code>. (Esri's own packaging step needs Visual Studio's MSBuild, so the script packages the add-in itself, in the same layout.) The computer that only <i>uses</i> the add-in needs neither the SDK nor Visual Studio.</div></div>
-<div class="step"><div class="num">6</div><div class="body"><b>Install the add-in.</b> Close ArcGIS Pro, double-click <code>NoiseBox.esriAddinX</code>, choose <i>Install</i>. Start Pro and open a map: a <b>NoiseBox</b> tab appears. (If Pro asks, allow add-ins from this file.) The add-in finds the Python side through <code>%LOCALAPPDATA%\\NoiseBox\\addin.json</code>, which step 3 wrote; on a computer where you only copy the <code>.esriAddinX</code>, still run step 3 there, or set the environment variable <code>NOISEBOX_HOME</code> to the NoiseBox folder.</div></div>
-<div class="box warn"><b>Step 6 has not been done yet.</b> The package builds and passes the static checks (section 9), but installing it into ArcGIS Pro and clicking through the ribbon has not been tried. If Pro reports an add-in error on first start, send the message shown by <i>Project &gt; Add-In Manager</i>. Steps 1 to 4 (the toolbox route) have been run and tested end to end.</div>
+<h2 class="pb">3. Installing on a computer</h2>
+{step(1, "Copy the NoiseBox folder", "Copy the whole folder to the computer (a clone of the GitHub repository works too). Do not install into a protected folder.")}
+{step(2, "Run the setup once", "Open PowerShell in the folder and run <code>.\\setup\\setup_noisebox.ps1</code> (add <code>-MatlabRoot \"D:\\MATLAB\\R2023a\"</code> if MATLAB is not in <code>C:\\Program Files\\MATLAB</code>). It creates <code>%LOCALAPPDATA%\\NoiseBox\\venv310</code>, installs numpy and the MATLAB Engine into it, and tells the add-in where the folder is.")}
+{step(3, "Install the add-in", "Close ArcGIS Pro. Double-click <code>dist\\NoiseBox.esriAddinX</code> and choose <b>Install</b>. Without a dialog: <code>\"C:\\Program Files\\ArcGIS\\Pro\\bin\\RegisterAddIn.exe\" dist\\NoiseBox.esriAddinX /s</code>. Do not copy files into the add-in folders by hand: Pro keeps its own copy.")}
+{step(4, "Start ArcGIS Pro", "Open a project with a map or a scene. The <b>NoiseBox</b> tab appears next to Help (figure 1). If it does not: <i>Project &gt; Add-In Manager</i>.")}
+{step(5, "Check the MATLAB link", "In Catalog, add the toolbox <code>NoiseBox.pyt</code> and run <b>4. Utilities &gt; Check MATLAB Link</b>. It starts MATLAB once, runs a smoke case (expect 45.22 dB(A)) and shows that the <code>.m</code> files it ran are the ones in <code>matlab\\core</code>.")}
+<div class="box">The computer that <i>uses</i> the add-in needs no .NET SDK. To rebuild it after changing the C# code: <code>.\\setup\\build_addin.ps1</code>, then raise the <code>version</code> in <code>addin\\NoiseBoxAddin\\Config.daml</code> before installing: Pro keeps the old copy of an add-in whose version number did not change.</div>
 
-<h2 class="pb">4. The workspace: ribbon and pane</h2>
-<p>The map stays in the centre and <i>Contents</i> on the left. NoiseBox adds one ribbon tab and one pane on the right (docked with <i>Catalog</i>).</p>
-<div class="fig"><img src="figures/ribbon.png" width="100%"><div class="cap">Schematic of the NoiseBox tab (drawn from the design, not a screenshot): six groups; a &#9662; marks a split button whose arrow offers the alternatives.</div></div>
-<table><tr><th>Group</th><th>Buttons</th><th>What it does</th></tr>
-<tr><td>Scenario</td><td>New, Open, Save, Duplicate</td><td>A scenario is one file (<code>.nbscenario.json</code>). Duplicate it to try a mitigation next to the baseline.</td></tr>
-<tr><td>Source</td><td>Set Location &#9662;, Source Spectrum, Directivity</td><td><i>Set Location</i> arrow: <b>From Layer</b>, <b>Enter Coordinates</b>, <b>Place on Map</b> (activates the placement tool at once; Esc cancels).</td></tr>
-<tr><td>Terrain and Area</td><td>Select DTM &#9662;, Set Analysis Area &#9662;, Receiver Grid</td><td>DTM from the project's rasters or browse; area from polygons, drawn polygon or rectangle, radius around the source, or the captured map extent; cell size (match the DTM or custom).</td></tr>
-<tr><td>Structures</td><td>Add Building &#9662;, Add Noise Barrier &#9662;, Add Enclosure &#9662;</td><td>From a layer, drawn, or entered numerically (barrier: start, length, azimuth, height; enclosure: length, width, height, orientation).</td></tr>
-<tr><td>Propagation</td><td>Ground, Atmosphere, Terrain Screening, Meteorology</td><td>Each opens its section of the pane.</td></tr>
-<tr><td>Analysis</td><td>Preview, Run, Results</td><td><b>Preview</b> is fast and calculates no acoustics; <b>Run</b> calculates and adds results to Contents.</td></tr></table>
+<h2 class="pb">4. The workspace: ribbon, pane, Contents</h2>
+{fig("01_ribbon.png", "Figure 1. The NoiseBox tab: six groups. Hover over any button in Pro for its tooltip; every button has a keytip (press Alt, then NB).")}
+<table><tr><th>Group</th><th>Button</th><th>What it does</th></tr>
+<tr><td rowspan=4>Scenario</td><td>New / Open / Save / Duplicate</td><td>A scenario is one <code>.nbscenario.json</code> file. Duplicate copies it to test a mitigation next to the baseline. The GIS data it refers to is never changed.</td></tr>
+<tr><td colspan=2>&nbsp;</td></tr><tr><td colspan=2>&nbsp;</td></tr><tr><td colspan=2>&nbsp;</td></tr>
+<tr><td rowspan=3>Source</td><td>Location (menu)</td><td>Three equivalent ways to set the source position: from a layer, enter coordinates, place on the map.</td></tr>
+<tr><td>Source Spectrum</td><td>Opens the pane at the Lw table: type, paste, import CSV, load a named profile.</td></tr>
+<tr><td>Directivity</td><td>Omnidirectional, or a constant correction Dc per band.</td></tr>
+<tr><td rowspan=3>Terrain and Area</td><td>DTM (menu)</td><td>Project raster, <b>map ground surface</b>, browse for a file, show coverage, or flat ground.</td></tr>
+<tr><td>Area (menu)</td><td>Existing polygons, draw a polygon or rectangle, radius around the source, capture the map extent.</td></tr>
+<tr><td>Receiver Grid</td><td>Cell size (match the DTM or custom) and receiver height above local ground.</td></tr>
+<tr><td rowspan=3>Structures</td><td>Building (menu)</td><td>From a polygon layer or draw a footprint.</td></tr>
+<tr><td>Barrier (menu)</td><td>From a line layer, sketch on the map, or precise placement (start point, length, azimuth, height).</td></tr>
+<tr><td>Enclosure (menu)</td><td>A quick rectangle around the source, or draw a footprint.</td></tr>
+<tr><td rowspan=4>Propagation</td><td>Ground, Atmosphere, Terrain Screening, Meteorology</td><td>Open the pane at those settings (section 5).</td></tr>
+<tr><td colspan=2>&nbsp;</td></tr><tr><td colspan=2>&nbsp;</td></tr><tr><td colspan=2>&nbsp;</td></tr>
+<tr><td rowspan=3>Analysis</td><td>Preview</td><td>Fast check with no acoustic calculation: shows what the run will use and lists every issue.</td></tr>
+<tr><td>Run</td><td>Calculates with the MATLAB core and adds a named group to Contents.</td></tr>
+<tr><td>Results</td><td>Shows the datasets and run snapshots written so far.</td></tr></table>
+<h3>The menus</h3>
+<div class="two"><div>{fig("m1_set_location.png", "Figure 2. Source: Location menu. The default item (on the button) is From Layer.")}</div><div>{fig("m2_select_dtm.png", "Figure 3. DTM menu, including DTM from Map Ground.")}</div></div>
+<div class="two"><div>{fig("m3_set_area.png", "Figure 4. Area menu.")}</div><div>{fig("m5_barrier.png", "Figure 5. Barrier menu (Building and Enclosure work the same way).")}</div></div>
 <h3>The pane</h3>
-<p>Sections open and close independently and can be visited in any order. A closed section summarises its real settings (<i>Drill-01, 1.2 m above ground</i>). <b>Preview</b> and <b>Run</b> stay at the bottom. If something is missing, the message names it and clicking it opens the input.</p>
-<div class="two"><div class="fig"><img src="figures/pane_source.png" width="100%"><div class="cap">Schematic: Source section open, other sections collapsed with their summaries.</div></div>
-<div class="fig"><img src="figures/pane_structures.png" width="100%"><div class="cap">Schematic: Structures. The checkbox is <i>Include in Analysis</i>; <i>Drawn on map</i> only controls the drawing.</div></div></div>
+<p>One dockable pane holds everything. Each section can be collapsed; a collapsed section shows a real summary of what is set in it. <b>Preview</b> and <b>Run</b> stay at the bottom with the number of errors and warnings and a status line.</p>
+{fig("02_pane_new.png", "Figure 6. The whole window with a new scenario: ribbon, Contents (left), map, and the NoiseBox pane (right).", "92%")}
 
-<h2 class="pb">5. Worked example: a drill rig behind a screen</h2>
-<p><b>Situation.</b> A drill rig (<i>Drill-01</i>) runs at a site in Tel Aviv (Israeli TM Grid, EPSG 2039). Neighbours stand 60 to 160 m to the east. The limit at their boundary is <b>55 dB(A)</b>. We predict the baseline, then add a 4 m noise barrier, then a sound-proof enclosure around the rig, and see what each buys. The example uses the sample data in <code>sample\\</code>, so you can repeat every step.</p>
-<div class="step"><div class="num">1</div><div class="body"><b>Open the map and a new scenario.</b> Open your project and a map. On the NoiseBox tab click <b>New</b>. In the pane, <i>Scenario</i>, type the name <code>Drill rig, baseline</code>.</div></div>
-<div class="step"><div class="num">2</div><div class="body"><b>Place the source.</b> Click the arrow beside <b>Set Location</b>. Choose one of three equivalent ways; all give the same point:
-<ul><li><b>From Layer:</b> choose <code>sources</code> (from <code>sample\\NoiseBox_sample.gdb</code>), select the point on the map, click <i>Use this layer point</i>. If several points are selected you are asked which one.</li>
-<li><b>Enter Coordinates:</b> the coordinate fields open and the first is focused. Choose EPSG 2039; the labels read <i>Easting</i> and <i>Northing</i> (for WGS 84 they would read <i>Longitude</i> and <i>Latitude</i>). Enter <code>180000</code> and <code>665000</code>.</li>
-<li><b>Place on Map:</b> the placement tool starts at once; click the map. Coordinates appear in the pane immediately.</li></ul>
-Name the source <code>Drill-01</code>. Under <i>Source height above ground</i> enter <code>1.2</code> (metres).</div></div>
-<div class="step"><div class="num">3</div><div class="body"><b>Enter the spectrum.</b> In the Lw table type the eight sound power levels, or copy a row or column from Excel or MATLAB and click <b>Paste</b> (or press Ctrl+V in the table): <code>92 96 98 97 94 90 85 78</code> dB re 1 pW for 63 to 8000 Hz. Use <b>Save profile</b> to keep it as <i>Drill rig (example)</i>. An empty cell is <i>missing</i> and stops the run; it is not read as 0 dB.
-<div class="fig"><img src="figures/pane_source.png" width="38%" style="display:none"></div></div></div>
-<div class="step"><div class="num">4</div><div class="body"><b>Select the terrain.</b> <i>Terrain and Area</i>: choose the raster <code>dem_sample</code> from the list (or Browse) and click <i>Use this raster</i>. The pane shows its native cell size, coordinate system and vertical unit. If the unit is unknown it asks you to choose metres or feet, because a wrong unit would be off by a factor 3.28. <b>Show Coverage</b> draws any gaps in red. The source elevation then appears: ground 21.0 m + height 1.2 m = 22.2 m.</div></div>
-<div class="step"><div class="num">5</div><div class="body"><b>Set the analysis area and grid.</b> Click <b>Set Analysis Area &#9662; &gt; Draw Rectangle</b> and drag a rectangle 300 m wide and 200 m high around the source (or enter coordinates in the scenario). Results are produced only inside it; the source may even be outside. Set <b>Custom</b> cell size <code>5</code> m and receiver height <code>1.5</code> m (above the terrain at each receiver cell). The pane shows about <b>{FIG['cells']:,} receiver cells</b>.</div></div>
-<div class="step"><div class="num">6</div><div class="body"><b>Outputs.</b> Choose an output geodatabase (a <code>.gdb</code>), the run name <code>A_baseline</code>, tick <i>LAeq dB(A)</i> and <i>unweighted level</i>, tick the 500 and 1000 Hz band rasters, set the allowed level <code>55</code> dB(A) and the shared colour scale <code>35</code> to <code>75</code> dB. The pane lists the dataset names that will be created.</div></div>
-<div class="step"><div class="num">7</div><div class="body"><b>Preview, then Run.</b> Click <b>Preview</b>. Anything missing appears in <i>Issues</i> with a specific message, for example:
-<div class="fig"><img src="figures/pane_issues.png" width="46%"><div class="cap">Schematic of the Issues section when height and one band are missing. Real texts are in Appendix A.</div></div>
-Fix them (click an issue to go to the input), then click <b>Run</b>. MATLAB starts (10 to 80 seconds), then the grid is calculated. When it finishes, the results are in <i>Contents</i> in the group <code>NoiseBox: Drill rig, baseline | A_baseline</code>.</div></div>
-<div class="fig"><img src="figures/maps_abc.png" width="100%"><div class="cap">Real output, shared colour scale. A baseline; B with the 4 m barrier; C with barrier and enclosure. The dark line is the 55 dB(A) limit. Red dot: source. {FIG['engine']}, ISO 9613-2:2024.</div></div>
-<div class="step"><div class="num">8</div><div class="body"><b>Add the barrier.</b> <b>Duplicate</b> the scenario (name it <code>B_barrier</code>). <b>Add Noise Barrier &#9662; &gt; Precise Placement</b>: click the start point, then in the pane enter length <code>120</code> m, azimuth <code>0</code> (north), height <code>4</code> m. (Azimuth is clockwise from map north.) The barrier on the map moves as you type. Keep <i>Constant height above local terrain</i>. Click <b>Profile preview</b> to check the ground and barrier top:
-<div class="fig"><img src="figures/profile.png" width="62%"><div class="cap">Real output: ground from the DTM and the barrier top. The engine uses a flat top per barrier segment ({FIG['flat_top']:.1f} m).</div></div>
-The barrier is calculated as <i>diffraction only</i>. (Tick <i>Also calculate transmission</i> only if you can give the material.) Run it.</div></div>
-<div class="step"><div class="num">9</div><div class="body"><b>Add the enclosure.</b> Duplicate again (<code>C_barrier_enclosure</code>). <b>Add Enclosure &#9662; &gt; Quick Rectangle</b>: length 6 m, width 4 m, height 3 m, linked to the source. The footprint, roof and source appear on the map. Choose <b>Mass Law</b> and enter surface density <code>25</code> kg/m&sup2;, and the interior absorption coefficient alpha <code>0.3</code> in every band (alpha is a coefficient from 0 to 1, <b>not</b> a dB value). Enter an <b>opening area</b> of <code>0.5</code> m&sup2; (a ventilation opening). <i>Show TL per band</i> asks the core for the transmission loss (an <i>estimate</i>, labelled so).
-<div class="box warn"><b>Do not skip the opening.</b> The enclosure model is idealised: a closed 25 kg/m&sup2; box with absorptive walls would give about 50 dB of reduction at high frequencies, which no real enclosure reaches because of openings, leaks, doors and flanking paths. With the 0.5 m&sup2; opening the achievable reduction is limited to about 22 dB (warning ENC-021 says so). Treat enclosure results as an estimate and confirm with measurements.</div> To give each wall and the roof its own material, tick <i>Separate materials</i> and pick a face; the selected face is highlighted on the map. With manufacturer data choose <b>Manufacturer Data</b> and enter measured TL and alpha per band. Run it.
-<div class="fig"><img src="figures/spectrum.png" width="62%"><div class="cap">Real output: source Lw and the Lw radiated through the enclosure (diffuse-field model, applied once).</div></div></div></div>
-<div class="step"><div class="num">10</div><div class="body"><b>Compare.</b> The three runs now sit in Contents, drawn with the same colours. The difference maps show where each measure helps:
-<div class="fig"><img src="figures/differences.png" width="86%"><div class="cap">Real output: reduction in dB from the barrier, and additionally from the enclosure.</div></div>
-<table><tr><th>Receiver</th><th>A baseline dB(A)</th><th>B + barrier</th><th>C + barrier + enclosure</th></tr>{table_rows()}
-<tr><td><b>Highest level</b></td><td>{FIG['max']['A']:.1f}</td><td>{FIG['max']['B']:.1f}</td><td>{FIG['max']['C']:.1f}</td></tr>
-<tr><td><b>Share of cells above 55 dB(A)</b></td><td>{FIG['share_above_55']['A']:.0f} %</td><td>{FIG['share_above_55']['B']:.0f} %</td><td>{FIG['share_above_55']['C']:.0f} %</td></tr></table>
-Reading this for a decision: the enclosure removes the exceedance where the barrier alone does not; compare the share above the limit, not only the maximum. A scenario edited later never changes these results: each run keeps a snapshot (section 6).</div></div>
+<h2 class="pb">5. Every setting, section by section</h2>
+<h3>5.1 Source</h3>
+<div class="pane">{fig("03_source.png", "Figure 7. Source section.")}<div class="txt">
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Source name</td><td>Label used in messages and in the <i>NoiseBox source</i> layer.</td></tr>
+<tr><td>Location: from layer</td><td>The selected point of a point layer, or one found by name or ID (SRC-xxx messages explain a missing selection or several matches).</td></tr>
+<tr><td>Location: coordinates</td><td>A coordinate pair in a system you choose (EPSG code). The labels say which order to type (Easting, Northing, or Latitude, Longitude). One conversion to the analysis system is done, once; all three location methods give the same point (tested to 2e-10 m).</td></tr>
+<tr><td>Source height above ground (m)</td><td>The physical height of the source. It is <b>not</b> the ground elevation: the pane shows &ldquo;Ground 21.00 m + height 1.20 m = 22.20 m absolute&rdquo; once a DTM is chosen.</td></tr>
+<tr><td>Spectrum Lw (dB re 1 pW)</td><td>Eight octave bands, 63 to 8000 Hz. <b>An empty cell is missing, not 0 dB</b>; a missing band stops the run and is named. Paste (8 numbers or frequency + level) from Excel or MATLAB, import a CSV, or load/save a named profile. The bar chart under the table shows the spectrum.</td></tr>
+<tr><td>Directivity</td><td>Omnidirectional, or a constant correction Dc (dB, positive = louder) per band applied in all directions. A heading is stored; an angular table is not supported yet (a message says so).</td></tr></table></div></div>
 
-<h2 class="pb">6. Reading the results</h2>
-<h3>What appears in Contents</h3>
-<pre>NoiseBox: Drill rig, baseline | A_baseline        (one group per run)
-  LAeq, dB(A) [iso2024]                          overall A-weighted level, shown first
-  Lz unweighted energy sum of 8 bands, dB        optional
-  A_baseline | Octave bands (Lp, unweighted)     only the bands you ticked
-  A_baseline | Limit check                       margin to the limit, PASS/FAIL (if a limit was given)
-  A_baseline | Inspect                           detail cells: click a cell to read every value</pre>
-<p>Legends carry the quantity, unit and prediction mode. With a <i>shared colour scale</i> the same colour means the same level in the baseline and in every mitigation run. Names are made unique, so an earlier run is never overwritten.</p>
-<h3>Click a cell, read everything</h3>
-<p>With <i>Detail cells</i> = Full, use <b>Identify</b> on the map. Each cell lists <code>LAeq</code>, <code>LZ</code>, <code>Status</code> (PASS/FAIL), <code>Margin_dBA</code>, <code>Lp_63 ... Lp_8000</code>, <code>LpA_63 ... LpA_8000</code>, the dominant source, distance, ground elevation, path type (free, blocked, clear crest), and for each band the attenuations <code>Adiv</code>, <code>Aatm</code>, <code>Agr</code>, <code>Abar</code>. The detail check <i>Lp = Lw + Dc - (Adiv + Aatm + Agr + Abar)</i> holds to 1e-12 dB. Above 100 000 cells the detail cells are skipped (and you are told).</p>
-<h3>Cells with no value</h3>
-<p>Cells inside a building footprint, at the source, outside the DTM or outside the area are left empty (NoData). The run summary counts the cells inside buildings, and a warning gives the share of empty cells.</p>
-<h3>Snapshots</h3>
-<p>Each run writes a table <code>&lt;run&gt;_Snapshot</code> into the geodatabase: the whole scenario (settings, spectrum, material data, structures), what was resolved, the MATLAB version and the code fingerprint. Re-running a snapshot reproduces the raster exactly (tested to 1e-9 dB). Command: <code>propy noisebox_cli.py snapshot &lt;gdb&gt; &lt;run&gt; --to scenario.json</code>.</p>
+<h3>5.2 Terrain and Area</h3>
+<div class="pane">{fig("04_terrain.png", "Figure 8. Terrain and Area section, after choosing the map's ground surface.")}<div class="txt">
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>DTM (terrain)</td><td>Elevations in a raster. <b>Use this raster</b>: a raster of the map. <b>Use map ground surface</b>: the raster that is the ground elevation source of the active map (Contents &gt; Elevation Surfaces &gt; Ground). It must be a raster file; if the ground is a web elevation service the pane says so and tells you what to do. <b>Browse</b>: any raster file. <b>Flat ground</b>: elevation 0 m, terrain ignored.</td></tr>
+<tr><td>Vertical unit</td><td>If the raster does not say whether its heights are metres or feet, you are asked (DTM-006).</td></tr>
+<tr><td>Show Coverage</td><td>Draws the DTM footprint and the gaps along source-to-receiver paths (red squares) on the map.</td></tr>
+<tr><td>Receiver area</td><td>Results exist only inside it; the source may be outside. Four ways: existing polygons (selected or the entire layer), a drawn polygon or rectangle, a radius around the source (follows the source), the captured map extent (fixed).</td></tr>
+<tr><td>Receiver grid</td><td>Match the DTM resolution, or a custom cell size in metres. The pane shows the number of cells; a coarse DTM under a fine grid is flagged.</td></tr>
+<tr><td>Receiver height</td><td>Metres above the <i>local</i> terrain at every cell, not above sea level.</td></tr></table></div></div>
 
-<h2>7. Errors and warnings</h2>
-<p>There are three kinds. <b>Error:</b> the run is blocked until you fix it. <b>Warning:</b> it runs, but the result may not mean what you expect. <b>Note:</b> explains what will happen (for example that a hidden barrier is still calculated). Each has a code such as <code>SRC-014</code> (prefix = area: SRC source, SPC spectrum, DIR directivity, DTM terrain, ARA area and grid, STR/BLD/BAR/ENC structures, PRP propagation, OUT outputs, ENG engine).</p>
-<table><tr><th>You see</th><th>It means</th><th>Do</th></tr>
-<tr><td>SRC-014 Source height above ground is missing</td><td>The tool will not guess a height.</td><td>Type the height in metres.</td></tr>
-<tr><td>SPC-002 Lw is missing in 1 band(s): 125 Hz</td><td>An empty cell is not 0 dB.</td><td>Fill it, or type 0 if it really is 0.</td></tr>
-<tr><td>DTM-006 The vertical unit of the DTM is unknown</td><td>Metres or feet cannot be guessed.</td><td>Choose the unit in the pane.</td></tr>
-<tr><td>DTM-008 The source lies outside the DTM coverage</td><td>No ground elevation at the source.</td><td>Choose a larger DTM, or remove it for flat ground.</td></tr>
-<tr><td>ENC-004 The source is outside the enclosure footprint</td><td>The enclosure does not contain the source.</td><td>Move one of them.</td></tr>
-<tr><td>ENC-010 alpha is missing at 125 Hz</td><td>Interior absorption is needed for the enclosure model.</td><td>Enter alpha (0 to 1) for every band.</td></tr>
-<tr><td>BAR-022 transmission without material</td><td>You asked for transmission but gave no TL or mass.</td><td>Enter a material or untick transmission.</td></tr>
-<tr><td>OUT-001 / OUT-003 no output geodatabase / not a .gdb</td><td>Rasters need a file geodatabase.</td><td>Choose a <code>.gdb</code>.</td></tr>
-<tr><td>DTM-016 terrain screening off is not available</td><td>With a DTM the engine always includes terrain diffraction.</td><td>Leave it on, or remove the DTM.</td></tr></table>
-<p>The complete list is Appendix A. Preview shows all issues at once; the same checks run again at the start of Run.</p>
+<h3>5.3 Structures</h3>
+<div class="pane">{fig("05_structures.png", "Figure 9. A noise barrier selected in the list.")}<div class="txt">
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>List entries</td><td>Left tick = <b>Include in Analysis</b> (the engine uses it). &ldquo;Drawn on map&rdquo; = shown in Contents and on the map. The two are independent: hiding an object never changes the calculation, and an excluded object can stay drawn.</td></tr>
+<tr><td>Building</td><td>A footprint with a height above ground. Effect in this version: screening (diffraction over the top and around the sides); no reflections. Receiver cells inside the footprint are left empty.</td></tr>
+<tr><td>Noise barrier</td><td>A line. Vertical definition: constant height above local terrain, or a fixed absolute top elevation. Gap under the barrier. A profile preview plots the terrain and the barrier top along the line. <b>Transmission</b> is off by default (diffraction only, as in ISO 9613-2); switching it on adds transmission through the barrier from material data and is an engineering approximation.</td></tr>
+<tr><td>Edit, Duplicate, Zoom To, Remove</td><td>Remove only takes it out of the scenario; the GIS feature is not touched.</td></tr></table></div></div>
+<div class="pane">{fig("05b_enclosure.png", "Figure 10. An enclosure: size, orientation, opening.")}<div class="txt">
+<h3 style="margin-top:0">Enclosure (linked to the source)</h3>
+<p>Applied <b>once</b>, as a reduction of the radiated sound power (diffuse-field model in your <code>nb_enclosure.m</code>); it is not also treated as a barrier, and the floor counts as ground. A rectangle is defined by length, width and height, orientation (degrees clockwise from north) and an offset from the source; a drawn footprint works too.</p>
+<p><b>Opening area (m&sup2;)</b> matters: with no opening the model predicts an unrealistically large reduction (about 50 dB for 25 kg/m&sup2;). A real enclosure has doors, vents and leaks; a message (ENC-021) states the reduction limit that the opening gives. Treat enclosure results as an upper-end estimate.</p>
+<p><b>Separate materials for walls and roof</b>: each face gets its own material; the enclosure is combined by area.</p></div></div>
+<div class="pane">{fig("05c_material.png", "Figure 11. Material of an enclosure face.")}<div class="txt">
+<h3 style="margin-top:0">Material: mass law or manufacturer data</h3>
+<ul><li><b>Mass Law</b>: surface density (kg/m&sup2;) or thickness and volumetric density for homogeneous solid layers; the engine computes TL from the limp mass law (<code>nb_material</code>). &ldquo;Show TL per band&rdquo; asks the core and shows the numbers.</li>
+<li><b>Manufacturer Data</b>: a TL table (dB) per octave band.</li>
+<li><b>Interior absorption coefficient &alpha;</b> (0 to 1) is a different quantity from TL (dB). &alpha; sets the interior sound level; TL sets how much passes through. They are entered and used separately.</li></ul></div></div>
 
-<h2 class="pb">8. What the engine calculates and what it does not</h2>
-<table><tr><th>Effect</th><th>In this version</th><th>Notes</th></tr>
-<tr><td>Geometric divergence, atmospheric absorption, ground effect</td><td class="yes">Yes</td><td>ISO 9613-2:2024 (default); draft amendment and 1996 edition selectable. Uniform G, or separate source / middle / receiver G.</td></tr>
-<tr><td>Terrain: elevations and diffraction from a DTM</td><td class="yes">Yes</td><td>Cannot be switched off while keeping elevations (reported as an error, DTM-016).</td></tr>
-<tr><td>Screening by buildings and barriers (top and side paths)</td><td class="yes">Yes</td><td>Where terrain and structures obstruct the same path the engine takes the highest obstruction once; attenuation is not added twice. Barrier top is flat per segment.</td></tr>
-<tr><td>Transmission through a barrier</td><td class="part">Optional, approximate</td><td>Energy sum of diffracted and transmitted paths. An engineering approximation, <b>not</b> part of ISO 9613-2.</td></tr>
-<tr><td>Source enclosure</td><td class="part">Yes, diffuse-field model</td><td>Reduces the radiated sound power once (EN ISO 15667 style). Panel TL (dB) and interior alpha (0 to 1) are used separately. Assumes a diffuse interior field, no resonance or coincidence effects; the floor is ground. Several surfaces are combined by area (new core file <code>nb_enclosure_surfaces.m</code>; <code>nb_enclosure.m</code> is unchanged).</td></tr>
-<tr><td>Constant directivity correction Dc per band</td><td class="yes">Yes</td><td>One value per band for all directions.</td></tr>
-<tr><td>Angle-dependent directivity, heading</td><td class="no">No</td><td>The heading is stored but does not change results.</td></tr>
-<tr><td>Long-term meteorological correction C_met</td><td class="yes">Yes</td><td>Needs C0; applied to A-weighted levels only. Not applied by default.</td></tr>
-<tr><td>Reflections from buildings and barriers</td><td class="no">No</td><td>ISO 9613-2 cl. 7.5 image sources are not implemented.</td></tr>
-<tr><td>Multiple sources</td><td class="part">Core yes, ribbon one source</td><td>One source per scenario in the ribbon; the toolbox accepts several.</td></tr></table>
+<h3>5.4 Propagation</h3>
+<div class="pane">{fig("06_propagation.png", "Figure 12. Propagation section.")}<div class="txt">
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Prediction mode</td><td>Shows the ISO edition used: <b>ISO 9613-2:2024</b> (default), the draft amendment (not a published edition) or ISO 9613-2:1996 (superseded).</td></tr>
+<tr><td>Ground factor G</td><td>0 = hard (water, concrete), 1 = porous (grass, soil), default 0.5. Advanced: separate G for the source, middle and receiver regions.</td></tr>
+<tr><td>Atmosphere</td><td>Temperature (&deg;C), relative humidity (%), pressure (kPa). &ldquo;Show absorption&rdquo; asks the core for the absorption coefficient per band (dB/km) so you can see them.</td></tr>
+<tr><td>Terrain screening</td><td>With a DTM the engine always includes terrain diffraction in this version; switching it off is reported as an error (DTM-016) instead of being ignored.</td></tr>
+<tr><td>Meteorology</td><td>Favourable propagation (no correction, the default) or long-term average with C<sub>met</sub> from C0 (dB, practical range 0 to about 5).</td></tr>
+<tr><td>Active effects</td><td>A plain-language list of the attenuation terms in the current run, e.g. &ldquo;screening by 1 building(s) and 1 barrier(s) (Abar)&rdquo;.</td></tr></table></div></div>
 
-<h2>9. What was tested, and what was not</h2>
-<div class="box ok"><b>Checked independently of the Pro window</b> (the calculation tests run the real MATLAB core, R2023a):
-<table>{tests_html}</table></div>
-<div class="box bad"><b>Not tested:</b> anything that needs the Pro window itself: the ribbon, the pane, the map tools (placing, sketching, picking, heading), the import window, and the add-in install step, which compile and pass static checks but were never run in ArcGIS Pro; Identify clicks on detail cells; the <i>Run Scenario</i> tool inside the Pro window (it was run through ArcPy's geoprocessing framework); the shared colour scale (it uses Pro's raster symbology objects); MATLAB versions other than R2023a; other computers.</div>
+<h3>5.5 Outputs</h3>
+<div class="pane">{fig("07_outputs.png", "Figure 13. Outputs section (top).")}<div class="txt">
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Output geodatabase</td><td>A file geodatabase (.gdb). Doubled or forward slashes in the path are tolerated.</td></tr>
+<tr><td>Run name</td><td>Prefixes every dataset; the pane lists the names that will be created. A name that exists is made unique (<code>_2</code>, <code>_3</code>). Each run saves a <code>_Snapshot</code> table with the whole scenario and the code that ran.</td></tr>
+<tr><td>Rasters</td><td>Independent choices: overall A-weighted LAeq, overall unweighted level (energy sum of the 8 bands), and any octave-band rasters. All eight bands always enter the overall results.</td></tr>
+<tr><td>Allowed levels</td><td>Section 6.</td></tr>
+<tr><td>Shared colour scale</td><td>One minimum and maximum (dB) so baseline and mitigation runs have identical colours.</td></tr>
+<tr><td>Detail cells</td><td>None, Levels only, or Full: one invisible polygon per cell; click it with Identify to read every band and every attenuation term (Adiv, Aatm, Agr, Abar).</td></tr>
+<tr><td>Add results to the map</td><td>Creates a named group in Contents. Datasets are always written to the geodatabase.</td></tr>
+<tr><td>MATLAB engine</td><td>Section 10.</td></tr></table></div></div>
 
-<h2>10. Troubleshooting</h2>
-<table><tr><th>Problem</th><th>Check</th></tr>
-<tr><td>Check MATLAB Link fails: Python 3.10 not found</td><td>Run <code>setup\\setup_noisebox.ps1</code>; or set <code>NOISEBOX_PY310</code> to a <code>python.exe</code>.</td></tr>
-<tr><td>"The MATLAB worker ended without a result"</td><td>Open MATLAB once to check the licence and that no other session blocks it; run Check MATLAB Link.</td></tr>
-<tr><td>Rasters cannot be saved (error 010240)</td><td>The output must be a file geodatabase (<code>.gdb</code>) that is not locked or read-only.</td></tr>
-<tr><td>The add-in says the NoiseBox folder was not found</td><td>Run step 3 on that computer, or set <code>NOISEBOX_HOME</code>.</td></tr>
-<tr><td>The run is slow</td><td>About 7 ms per cell after a 10 to 80 s MATLAB start. Use a larger cell size or a smaller area.</td></tr>
-<tr><td>You edited a <code>.m</code> file</td><td>Nothing to do: every run starts a fresh MATLAB. Check MATLAB Link shows the new hashes.</td></tr>
-<tr><td>After editing <code>noisebox\\*.py</code> or <code>NoiseBox.pyt</code></td><td>Right-click the toolbox &gt; Refresh.</td></tr></table>
+<h3>5.6 Issues</h3>
+{fig("08_issues.png", "Figure 14. The Issues list after Preview. Click one to jump to the input that needs attention.", "46%")}
+<p>Errors stop the run. Warnings tell you about something that may not be what you meant (for example: reflections from structures are not calculated; the DTM cell is coarser than the output grid). Notes explain what will happen (which datasets will be created, how the pass rule works).</p>
+
+<h2 class="pb">6. Allowed levels: overall and per octave band</h2>
+<p>You can define the allowed level in any combination:</p>
+<ol><li>an <b>overall limit</b> on LAeq in dB(A);</li><li>a <b>limit for each octave band</b> (63 to 8000 Hz), compared as A-weighted levels (dB(A), the default) or as unweighted levels (dB). Leave a band empty for no limit in that band.</li></ol>
+<div class="box"><b>The rule: a cell passes only if every limit you defined is met.</b> If at least one band exceeds its limit, or the overall level exceeds its limit, the cell FAILS. The pane states the rule with your numbers, for example &ldquo;A cell PASSES only if every limit is met: LAeq &lt;= 55 dB(A); 500 Hz &lt;= 45 dB(A). One exceeded band is enough to FAIL.&rdquo;</div>
+{fig("07b_limits.png", "Figure 15. Allowed levels: overall limit, the per-band table (here only 500 Hz is limited) and the comparison weighting.", "42%")}
+<table><tr><th>Dataset</th><th>Content</th></tr>
+<tr><td><code>&lt;run&gt;_PassFail</code></td><td>1 = PASS, 0 = FAIL, with a Status column in its attribute table.</td></tr>
+<tr><td><code>&lt;run&gt;_Margin</code></td><td>The <b>largest exceedance over all limits</b> in dB: positive means the cell fails by that much; the most negative values are the cells with the most room.</td></tr>
+<tr><td>Detail cells</td><td><code>Status</code>, <code>Margin_dBA</code>, <code>Worst_Hz</code> (the band that exceeds most), <code>Worst_dB</code>, and one <code>Marg_&lt;Hz&gt;</code> field per limited band.</td></tr>
+<tr><td><code>&lt;run&gt;_Summary</code></td><td>Each limit, the pass rule, the area failing in m&sup2; and %, and for each limited band the number of cells that exceed it.</td></tr></table>
+<p>Tested: the cells that fail are exactly those where LAeq exceeds the overall limit <i>or</i> a band exceeds its limit; <code>Marg_500</code> equals the band level minus its limit to 0.0 dB; weighting &ldquo;unweighted&rdquo; compares the unweighted band level (tests/test_limits.py, 19 checks).</p>
+
+<h2>7. Objects you create appear in Contents</h2>
+<p>Whatever you create with a tool or from a layer is a <b>real object</b>, not a temporary drawing. It is written to the feature classes of the file geodatabase <code>NoiseBox_inputs.gdb</code> (in your project folder) and appears in Contents in the group <b>NoiseBox inputs</b>, drawn on the map:</p>
+<table><tr><th>Layer</th><th>Shape</th><th>Created by</th><th>Fields</th></tr>
+<tr><td>NoiseBox source</td><td>point</td><td>Location menu (layer, coordinates, place on map)</td><td>Name, Height_m</td></tr>
+<tr><td>NoiseBox noise barriers</td><td>line</td><td>Barrier menu, sketch or precise placement</td><td>Name, Height_m, Include, Note</td></tr>
+<tr><td>NoiseBox buildings</td><td>polygon</td><td>Building menu</td><td>Name, Height_m, Include</td></tr>
+<tr><td>NoiseBox enclosures</td><td>polygon</td><td>Enclosure menu</td><td>Name, Height_m, Include</td></tr>
+<tr><td>NoiseBox receiver area</td><td>polygon</td><td>Area menu</td><td>Name, Note (mode)</td></tr></table>
+<p>The scenario file stays the master: the layers are rebuilt from it after every change, so they never drift away from what the calculation will use. You can select, label, symbolise and zoom to them like any layer. An object whose <i>Drawn on map</i> box is unticked is not written to its layer (it is still calculated if <i>Include</i> is ticked). To change an object, edit it in the pane; to use your own features instead, use the &ldquo;From Layer&rdquo; items. The sync writes in the analysis coordinate system and orients polygons correctly; the log of problems is <code>%LOCALAPPDATA%\\NoiseBox\\addin.log</code>.</p>
+
+<h2 class="pb">8. Worked example: a drill rig behind a 4 m barrier</h2>
+<p><b>The question:</b> a drill rig (Lw 92, 96, 98, 97, 94, 90, 85, 78 dB from 63 to 8000 Hz) works at the Israeli TM Grid position 180000 / 665000, 1.2 m above ground. The allowed level is 55 dB(A) overall and, in addition, 45 dB(A) in the 500 Hz band. A 4 m high screen 25 m east of the rig is proposed. How much does it help, and where is the limit still exceeded?</p>
+<p>The steps below were run in ArcGIS Pro; every picture is a screenshot of that run. The terrain is the <b>ground surface of the map</b> (SRTM-based FABDEM, 30 m).</p>
+{step(1, "New scenario and name", "Click <b>New</b>. The pane opens with the Scenario section. Name it <i>Drill rig example</i>.")}
+{fig("02_pane_new.png", "Figure 16. A new scenario.", "86%")}
+{step(2, "Source", "In <b>Source</b>: name <i>Drill-01</i>; coordinate system 2039, Easting 180000, Northing 665000, <b>Set source</b> (or <i>Location &gt; Place on Map</i> and click); height 1.2 m; the spectrum in the Lw table. The pane confirms &ldquo;Source placed at 180000, 665000 (EPSG 2039)&rdquo;. The source also appears in Contents as <i>NoiseBox source</i>.")}
+{fig("03_source.png", "Figure 17. Source entered by coordinates.", "40%")}
+{step(3, "Terrain and receiver area", "In <b>Terrain and Area</b>: <b>Use map ground surface</b> (the pane reports the raster, its 30.9 m cells and its coordinate system; confirm the vertical unit, metres). Draw the receiver area with <i>Area &gt; Draw Rectangle</i> (here 300 m &times; 200 m around the rig). Choose a custom cell size of 10 m and a receiver height of 1.5 m: 30 &times; 20 = 600 cells.")}
+{fig("04_terrain.png", "Figure 18. DTM from the map's ground surface.", "40%")}
+{step(4, "The barrier", "<b>Barrier &gt; Sketch on Map</b>: click the two ends of the screen. It appears in the list and in Contents (<i>NoiseBox noise barriers</i>). Name it <i>Screen 4 m</i>, vertical definition <i>constant height above local terrain</i>, 4 m. <b>Profile preview</b> shows the terrain and the barrier top along its line.")}
+{fig("05_structures.png", "Figure 19. The barrier in the Structures section.", "40%")}
+{step(5, "Propagation", "Keep the defaults: ISO 9613-2:2024, G = 0.5, 15 &deg;C, 70 % RH, favourable propagation. The &ldquo;Active effects&rdquo; line lists what the run will include.")}
+{step(6, "Outputs and allowed levels", "Choose an output geodatabase, run name <i>B_barrier</i>, overall limit 55 dB(A) and a 500 Hz band limit of 45 dB(A) (A-weighted). The pane repeats the rule.")}
+<div class="two"><div>{fig("07_outputs.png", "Figure 20. Output settings.")}</div><div>{fig("07b_limits.png", "Figure 21. The two limits and the pass rule.")}</div></div>
+{step(7, "Preview", "Press <b>Preview</b> (or the ribbon button). No acoustics are calculated; the pane lists the issues and the map shows the receiver area, the source and the barrier. Fix every error; read the warnings. Here: 0 errors, and warnings that reflections are not calculated and that the 30.9 m DTM is coarser than the 10 m grid.")}
+{fig("09_preview_map.png", "Figure 22. After Preview: inputs on the map (NoiseBox inputs in Contents) and the issue summary.", "92%")}
+{step(8, "Run (with the barrier)", "Press <b>Run</b>. The first run starts MATLAB (about 10 s on this computer); the status line shows progress. When it finishes, the results are in Contents in the group <i>NoiseBox: Drill rig example | B_barrier</i>.")}
+{fig("10_results_B.png", "Figure 23. Results of run B on the map; the screen's shadow is visible east of the rig.", "92%")}
+{step(9, "Baseline for comparison", "Untick <i>Include in Analysis</i> for the screen (it stays drawn), change the run name to <i>A_baseline</i>, run again. Same scenario, no barrier: this is the reference.")}
+{fig("12_results_A.png", "Figure 24. Run A (no barrier) in the same window.", "92%")}
+{step(10, "Compare", "Numbers from the two runs on the same 600 cells (full detail in the <code>_Summary</code> tables):")}
+<table><tr><th>&nbsp;</th><th>A: no barrier</th><th>B: 4 m barrier</th></tr>
+<tr><td>LAeq minimum / mean / maximum, dB(A)</td><td>{fnum(A.get('min'))} / {fnum(A.get('mean'))} / {fnum(A.get('max'))}</td><td>{fnum(B.get('min'))} / {fnum(B.get('mean'))} / {fnum(B.get('max'))}</td></tr>
+<tr><td>Cells above 55 dB(A)</td><td>{fnum(NUM.get('share_above_55_A'))} %</td><td>{fnum(NUM.get('share_above_55_B'))} %</td></tr>
+<tr><td>Area failing at least one limit (overall 55 dB(A) or 500 Hz 45 dB(A))</td><td>{fnum(sA.get('Share of area failing'))} %</td><td>{fnum(sB.get('Share of area failing'))} %</td></tr>
+<tr><td>Cells exceeding the 500 Hz limit</td><td>{fnum(sA.get('Cells exceeding the 500 Hz limit'), 0)}</td><td>{fnum(sB.get('Cells exceeding the 500 Hz limit'), 0)}</td></tr></table>
+{fig("fig_compare.png", "Figure 25. LAeq without and with the barrier, and the difference (B minus A). The black contour is 55 dB(A). Drawn from the real rasters of the two runs.")}
+{fig("fig_passfail.png", "Figure 26. Run B: PASS/FAIL (every limit must be met) and the margin to the nearest limit.", "80%")}
+<div class="box"><b>Reading it.</b> The screen lowers levels in its shadow by up to {fnum(abs(NUM.get('largest_reduction_dB', 0)))} dB on this grid, but cells close to the rig and in front of the screen are unchanged. With the 500 Hz limit added, some cells still fail even where the overall level is under 55 dB(A): that is the &ldquo;one exceeded band is enough&rdquo; rule at work, and the Margin raster shows by how much. This is a <b>prediction with the stated simplifications</b> (section 12), not a guarantee.</div>
+{step(11, "Look at one cell", "Run again with <i>Detail cells = Full</i> and click a cell with <b>Identify</b>: the level in each band, the dominant source, the distance, the ground elevation and the attenuation terms for that cell, plus <code>Status</code>, <code>Worst_Hz</code> and <code>Marg_500</code>.")}
+{step(12, "Save", "<b>Save</b> writes the scenario file. Every run also keeps its own <code>_Snapshot</code> table, so any result can be reproduced later.")}
+
+<h2 class="pb">9. Reading the results</h2>
+<table><tr><th>Dataset (prefix = run name)</th><th>Content</th></tr>
+<tr><td>_LAeq</td><td>Overall A-weighted level, dB(A), one value per receiver cell (NoData outside the area, inside buildings, at the source, outside the DTM).</td></tr>
+<tr><td>_LZ</td><td>Overall unweighted level (energy sum of the 8 bands), if chosen.</td></tr>
+<tr><td>_Lp&lt;Hz&gt;</td><td>Octave-band level, dB, for the bands you chose.</td></tr>
+<tr><td>_Margin, _PassFail</td><td>Section 6. Created whenever any limit is defined.</td></tr>
+<tr><td>_Cells</td><td>Detail polygons (Identify). Fields include LAeq, Status, Lp_/LpA_ per band, DomSrc, Dist_m, Ground_m, PathType, Adiv_/Aatm_/Agr_/Abar_ per band.</td></tr>
+<tr><td>_Summary</td><td>Cells, cell size, receiver height, LAeq min/max, the active effects, every limit and the share of area failing.</td></tr>
+<tr><td>_Snapshot</td><td>The scenario, what was resolved (coordinate system, grid), and which code ran (MATLAB version, md5 of every <code>.m</code> file). Re-running a snapshot reproduces the raster.</td></tr></table>
+
+<h2>10. Speed: the MATLAB engine</h2>
+<p>Starting MATLAB takes about 7 s here and 10 to 80 s on other computers. NoiseBox therefore keeps <b>one MATLAB ready</b> after the first run (mode <i>warm</i>, the default): later runs skip the start-up (in the test: 4.5 s against 12.2 s for a fresh MATLAB on a 60-cell case). Before every run the md5 of every <code>.m</code> file is compared with the previous run; if one changed, MATLAB's function cache is cleared, so <b>an edited <code>.m</code> file still takes effect on the next run</b>. The engine quits after 30 idle minutes. <b>Outputs &gt; MATLAB engine</b> shows its state and has a <b>Stop engine</b> button that frees the memory (about 0.5 GB).</p>
+<p>To go back to one MATLAB per run, put <code>{{"engine": "fresh"}}</code> in <code>config.json</code>; <code>docs\\ENGINE_OPTIONS.md</code> records the options that were considered (including why compiling the core to Python was not possible with the licence available here) so you can decide later. The warm and the fresh mode give identical rasters (difference 0.0 dB).</p>
+
+<h2>11. Errors and warnings</h2>
+<p>There are {len(I.CATALOGUE)} numbered messages (Appendix A): <b>errors</b> stop the run, <b>warnings</b> allow it but tell you about something that may not be what you intended, <b>notes</b> explain. Each is built from a template that fills in your values, and has a section so a click takes you to the input. Typical examples:</p>
+<table><tr><th>Code</th><th>Message</th></tr>
+<tr><td>SRC-001</td><td>Source height above ground is missing. &rarr; Enter the physical height of the source in metres.</td></tr>
+<tr><td>SPC-xxx</td><td>Lw is missing in 1 band(s): 125 Hz. A missing value is not the same as 0 dB.</td></tr>
+<tr><td>DTM-006</td><td>The vertical unit of this DTM is unknown. &rarr; Choose metres or feet.</td></tr>
+<tr><td>OUT-021</td><td>The limit for 500 Hz is not a number. &rarr; Enter dB or leave it empty.</td></tr>
+<tr><td>OUT-023</td><td>A cell passes only if EVERY limit is met: &hellip; One exceeded band is enough to fail.</td></tr>
+<tr><td>ENC-021</td><td>With this opening area the enclosure's reduction cannot exceed &hellip; dB.</td></tr></table>
+
+<h2>12. What the engine calculates and what it does not</h2>
+<table><tr><th>Included</th><th>Not included (and what NoiseBox does about it)</th></tr>
+<tr><td>Geometric divergence, atmospheric absorption, ground effect (Agr), screening by barriers, buildings and terrain (Abar), an optional C<sub>met</sub>; energy sums over bands and sources; A-weighting; enclosure reduction applied once to the radiated Lw.</td>
+<td>Reflections from structures (warning). Angle-dependent directivity (the heading is stored, a message says it is unused). Terrain screening off while keeping a DTM (error DTM-016). Receivers inside a building footprint are left empty. The enclosure model is idealised and needs an opening area.</td></tr></table>
+<div class="box warn">No ISO certification or conformance is claimed. The acoustic physics are the user's <code>matlab/core</code> code; NoiseBox prepares the data, runs it, and writes the results.</div>
+
+<h2 class="pb">13. What was tested, and what was not</h2>
+<h3>Automated tests (propy, on the development computer)</h3>
+<table><tr><th>Test</th><th>Result</th></tr>{tests_html}</table>
+<h3>Run inside ArcGIS Pro 3.5.3 (this manual's screenshots)</h3>
+<ul><li>Installing the <code>.esriAddinX</code>, the tab and all its buttons, the pane, the menus, opening a scenario, typing values, Preview, Run through MATLAB, results in Contents, a baseline run with the barrier excluded, the real objects in <i>NoiseBox inputs</i>, the DTM from the map's ground surface, the per-band limits.</li>
+<li>Source, area, buildings, barriers and enclosures were created through the same pane methods the map tools call after a sketch (an automated test hook, off unless an environment variable is set), because the automated test cannot take over the mouse; the tools' own click handling was reviewed in code and <b>not</b> clicked by a person in this test.</li></ul>
+<div class="box warn"><b>Not tested:</b> a person sketching with each map tool; the import window; the enclosure and building results inside Pro (the engine tests cover them); MATLAB versions other than R2023a; computers other than this one; scenes versus 2D maps beyond the 3D scene used here; very large grids.</div>
+
+<h2>14. Troubleshooting</h2>
+<table><tr><th>Symptom</th><th>Cause and what to do</th></tr>
+<tr><td>No NoiseBox tab</td><td><i>Project &gt; Add-In Manager</i> shows load errors. Install again (section 3). Pro must be closed while installing.</td></tr>
+<tr><td>A ribbon button turns grey after a click</td><td>Its handler threw an exception. Read <code>%LOCALAPPDATA%\\NoiseBox\\addin.log</code> (every exception inside the add-in is written there) and report it.</td></tr>
+<tr><td>I rebuilt the add-in but Pro shows the old one</td><td>Raise <code>version</code> in <code>Config.daml</code>. If a Pro process that crashed earlier is still listed in Task Manager it keeps the cached DLL open; rename <code>%LOCALAPPDATA%\\ESRI\\ArcGISPro\\AssemblyCache\\{{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}}\\NoiseBoxAddin.dll</code> and install again, or restart the computer.</td></tr>
+<tr><td>&ldquo;Failed to add data&rdquo; for the results</td><td>The geodatabase path was malformed (doubled backslashes). NoiseBox now normalises it, and if Pro still refuses inside the tool the add-in adds the result layers itself.</td></tr>
+<tr><td>The run is slow to start</td><td>The first run starts MATLAB; later runs reuse it (section 10).</td></tr>
+<tr><td>The MATLAB link check fails</td><td>Run <code>setup\\setup_noisebox.ps1</code> again; check that MATLAB is licensed for this user; see <code>%LOCALAPPDATA%\\NoiseBox\\engine.log</code>.</td></tr>
+<tr><td>Pro asks to recover the project</td><td>It happens after Pro was closed by force. Answer No if you have no unsaved work.</td></tr></table>
 
 <h2 class="pb">Appendix A: every error, warning and note</h2>
-<p>{len(I.CATALOGUE)} entries. <span style="color:#b42318"><b>error</b></span> blocks the run; <span style="color:#b26200"><b>warning</b></span> allows it; note explains. Text in braces is replaced by the actual value or name.</p>
 {catalogue_html()}
 
-<h2 class="pb">Appendix B: scenario file and command line</h2>
-<p>The scenario is plain JSON, schema <code>noisebox.scenario/1</code>; the add-in and the tools read and write the same file. Main parts: <code>source</code> (location, height, spectrum, directivity), <code>terrain</code>, <code>area</code>, <code>structures</code> (buildings, barriers, enclosures, each with <code>include</code> and <code>visible</code>), <code>propagation</code>, <code>outputs</code>.</p>
-<pre>propy noisebox_cli.py new   my.nbscenario.json --name "Drill rig"
-propy noisebox_cli.py validate my.nbscenario.json          (--fast: no GIS data)
-propy noisebox_cli.py preview  my.nbscenario.json          (issues, grid, DTM coverage, faces)
-propy noisebox_cli.py run      my.nbscenario.json          (needs the output .gdb)
-propy noisebox_cli.py snapshot &lt;gdb&gt; &lt;run&gt; --to earlier.json
-propy noisebox_cli.py parse-spectrum --text "92 96 98 97 94 90 85 78"
-propy noisebox_cli.py dtm-info &lt;raster&gt;     |  crs 2039  |  suggest-crs 34.78 32.08</pre>
-<p>In ArcGIS Pro the same run is available as the tool <b>NoiseBox &gt; 5. Add-in &gt; Run Scenario</b> (one parameter: the scenario file), which adds the grouped, styled results to the open map. The original tools (Noise Map, Noise at Receivers, Compare Noise Maps, Create Input Layers, Check MATLAB Link) are unchanged.</p>
+<h2 class="pb">Appendix B: scenario file, command line, configuration</h2>
+<p>A scenario is one JSON file (<code>noisebox.scenario/1</code>): <code>source</code> (position in the coordinate system it was entered in, height, spectrum, directivity), <code>terrain</code> (DTM, vertical unit), <code>area</code>, <code>structures</code>, <code>propagation</code>, <code>outputs</code> (including <code>limit_dba</code>, <code>limit_bands</code> and <code>limit_band_weighting</code>). A band that is <code>null</code> is missing. Scenario files written before the per-band limits existed open unchanged.</p>
+<pre>propy noisebox_cli.py validate scenario.nbscenario.json
+propy noisebox_cli.py preview  scenario.nbscenario.json
+propy noisebox_cli.py run      scenario.nbscenario.json
+propy noisebox_cli.py engine   status | start | stop
+propy tests\\run_all.py &lt;output folder&gt;     (all tests; MATLAB tests take about 40 minutes)</pre>
+<p><code>config.json</code> in the NoiseBox folder: <code>{{"python310": "...\\\\python.exe", "engine": "warm", "engine_idle_minutes": 30}}</code>. Environment variables: <code>NOISEBOX_PY310</code>, <code>NOISEBOX_ENGINE</code>, <code>NOISEBOX_HOME</code>.</p>
+<p><b>Test hook (developers).</b> If <code>NOISEBOX_AUTOMATION=1</code> is set when ArcGIS Pro starts, JSON command files in <code>%LOCALAPPDATA%\\NoiseBox\\automation</code> can place the source, add structures, set values and zoom, exactly as the tools' finished sketches do. It is off for normal use.</p>
 """
 
-doc = "<!doctype html><html><head><meta charset='utf-8'><title>NoiseBox manual</title><style>%s</style></head><body>%s</body></html>" % (css, body)
-hp = os.path.join(HERE, "NoiseBox_Manual.html")
-with open(hp, "w", encoding="utf-8") as f:
-    f.write(doc)
+html_doc = "<!doctype html><html><head><meta charset='utf-8'><title>NoiseBox for ArcGIS Pro: manual</title><style>%s</style></head><body>%s</body></html>" % (css, body)
+out_html = os.path.join(HERE, "NoiseBox_Manual.html")
+with open(out_html, "w", encoding="utf-8") as f:
+    f.write(html_doc)
 pdf = os.path.join(HERE, "NoiseBox_Manual.pdf")
 edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 if not os.path.isfile(edge):
-    edge = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-subprocess.run([edge, "--headless", "--disable-gpu", "--no-pdf-header-footer", "--print-to-pdf=" + pdf,
-                "file:///" + hp.replace("\\", "/")], check=True, timeout=180)
-print("wrote", pdf, os.path.getsize(pdf))
+    edge = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+subprocess.run([edge, "--headless", "--disable-gpu", "--no-pdf-header-footer", "--print-to-pdf=" + pdf, "file:///" + out_html.replace("\\", "/")],
+               check=True, capture_output=True, timeout=300)
+print("written", pdf, os.path.getsize(pdf))

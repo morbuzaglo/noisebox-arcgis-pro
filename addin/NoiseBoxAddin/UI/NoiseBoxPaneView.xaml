@@ -10,6 +10,7 @@
         <extensions:DesignOnlyResourceDictionary Source="pack://application:,,,/ArcGIS.Desktop.Framework;component\Themes\Default.xaml" />
       </ResourceDictionary.MergedDictionaries>
       <Style x:Key="Lbl" TargetType="TextBlock">
+        <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,4,0,1" />
         <Setter Property="Foreground" Value="{DynamicResource Esri_TextStyleDefaultBrush}" />
       </Style>
@@ -17,6 +18,14 @@
         <Setter Property="Foreground" Value="Gray" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,2,0,2" />
+      </Style>
+      <Style TargetType="CheckBox">
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
+      </Style>
+      <Style TargetType="RadioButton">
+        <Setter Property="Margin" Value="0,2,8,2" />
+        <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate></Setter.Value></Setter>
       </Style>
       <Style TargetType="Expander">
         <Setter Property="Margin" Value="0,0,0,5" />
@@ -46,7 +55,7 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel Margin="6">
 
         <!-- ================= Scenario ================= -->
@@ -202,7 +211,7 @@
               <TextBlock Style="{StaticResource SectionSummary}" Text="{Binding StructuresSummary}" Visibility="{Binding RelativeSource={RelativeSource AncestorType=Expander}, Path=IsExpanded, Converter={x:Static ui:Inverse.BoolNotVisibility}}" /></StackPanel>
           </Expander.Header>
           <StackPanel Margin="14,2,0,8">
-            <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" MaxHeight="150">
+            <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" MaxHeight="150" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <StackPanel>
@@ -213,7 +222,7 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
                       <CheckBox Content="Drawn on map" IsChecked="{Binding Visible}" Margin="0,0,8,0" />
-                      <TextBlock Text="{Binding State}" Foreground="Gray" />
+                      <TextBlock Text="{Binding State}" Foreground="Gray" TextWrapping="Wrap" MaxWidth="170" />
                     </StackPanel>
                   </StackPanel>
                 </DataTemplate>

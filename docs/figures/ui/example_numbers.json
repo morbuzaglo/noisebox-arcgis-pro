@@ -1,0 +1,49 @@
+{
+ "runs": [
+  "A_baseline_2_LAeq",
+  "B_barrier_5_LAeq"
+ ],
+ "A": {
+  "min": 38.443668365478516,
+  "max": 71.78401947021484,
+  "mean": 46.795951995849606
+ },
+ "B": {
+  "min": 32.72786331176758,
+  "max": 71.78401947021484,
+  "mean": 41.791709887186684
+ },
+ "largest_reduction_dB": -13.136337280273438,
+ "mean_change_dB": -5.004242108662923,
+ "share_above_55_A": 8.666666666666668,
+ "share_above_55_B": 8.0,
+ "summary_A": {
+  "Cells calculated": 600.0,
+  "Cell size": 10.0,
+  "Receiver height above local ground": 1.5,
+  "Cells inside building footprints": 0.0,
+  "LAeq minimum": 38.44366648169563,
+  "LAeq maximum": 71.78402201707904,
+  "Source height above ground": 1.2,
+  "Limit, overall": 55.0,
+  "Limit, 500 Hz": 45.0,
+  "Area failing at least one limit": 9600.0,
+  "Share of area failing": 16.0,
+  "Cells exceeding the 500 Hz limit": 96.0
+ },
+ "summary_B": {
+  "Cells calculated": 600.0,
+  "Cell size": 10.0,
+  "Receiver height above local ground": 1.5,
+  "Cells inside building footprints": 0.0,
+  "LAeq minimum": 32.72786296514306,
+  "LAeq maximum": 71.78402201707904,
+  "Source height above ground": 1.2,
+  "Limit, overall": 55.0,
+  "Limit, 500 Hz": 45.0,
+  "Area failing at least one limit": 8000.0,
+  "Share of area failing": 13.333333333333334,
+  "Cells exceeding the 500 Hz limit": 80.0
+ },
+ "cells": 600
+}

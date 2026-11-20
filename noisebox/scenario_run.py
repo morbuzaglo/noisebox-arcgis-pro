@@ -209,7 +209,8 @@ def run(sc, log=None):
         raise IssuesError(iss)
 
     o = sc["outputs"]
-    gdb = o["gdb"]
+    gdb = os.path.normpath(o["gdb"])          # tolerate doubled or forward slashes: the map cannot add data from "C:\\x\\y.gdb"
+    o["gdb"] = gdb
     wkid, sxy, rings, bbox, cs = scene["wkid"], scene["sxy"], scene["rings"], scene["bbox"], scene["cs"]
     sr = arcpy.SpatialReference(wkid)
     grid, ll = aio.make_grid(bbox, cs)
@@ -378,6 +379,8 @@ def run(sc, log=None):
     sink = out.MapSink(bool(o.get("add_to_map", True)), log)
     if sink.on:
         _add_to_map(sink, sc, run_name, created, shared, mode_txt)
+        if sink.failed:
+            log.msg("NOISEBOX_MAP_ADD_FAILED")        # the add-in looks for this line and adds the layers with the Pro SDK
     log.msg("Done: %s" % run_name)
     return {"run_name": run_name, "created": created, "issues": iss,
             "stats": {"cells": n_ok, "laeq_min": lmin, "laeq_max": lmax, "cells_in_buildings": n_in_bld},

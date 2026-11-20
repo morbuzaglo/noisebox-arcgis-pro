@@ -1,16 +1,16 @@
 {
  "lines": [
   [
-   "Scenario validation, geometry, spectrum input, source methods (256-entry catalogue)",
-   "PASS: 151 checks passed, 0 failed, exit code 0 (16 s)"
+   "Scenario validation, geometry, spectrum input, source methods (260-entry catalogue)",
+   "PASS: 151 checks passed, 0 failed, exit code 0 (8 s)"
   ],
   [
    "Command line used by the add-in (JSON, DTM coverage)",
-   "PASS: 14 checks passed, 0 failed, exit code 0 (103 s)"
+   "PASS: 14 checks passed, 0 failed, exit code 0 (65 s)"
   ],
   [
    "Add-in package: DAML vs Esri schema, classNames, refIDs, zip layout",
-   "PASS: 7 checks passed, 0 failed, exit code 0 (1 s)"
+   "PASS: 10 checks passed, 0 failed, exit code 0 (1 s)"
   ],
   [
    "Add-in pane: XAML bindings, handlers, converters, focus targets",
@@ -18,19 +18,27 @@
   ],
   [
    "Original toolbox vs the MATLAB core (raster, bands, every detail field)",
-   "PASS: 1 checks passed, 0 failed, exit code 0 (182 s)"
+   "PASS: 1 checks passed, 0 failed, exit code 0 (109 s)"
   ],
   [
    "Original toolbox: hot reload, 2 sources, drawn inputs, polygon area, DEM, receivers, compare",
-   "PASS: 10 checks passed, 0 failed, exit code 0 (624 s)"
+   "PASS: 10 checks passed, 0 failed, exit code 0 (187 s)"
   ],
   [
    "Scenario runs on the MATLAB core: baseline, barrier, enclosure, Dc, C0, G, outputs, previews, snapshot",
-   "PASS: 25 checks passed, 0 failed, exit code 0 (708 s)"
+   "PASS: 25 checks passed, 0 failed, exit code 0 (176 s)"
+  ],
+  [
+   "MATLAB engine modes: warm engine == fresh MATLAB, hot reload of an edited .m, faster from the 2nd run",
+   "PASS: 12 checks passed, 0 failed, exit code 0 (122 s)"
+  ],
+  [
+   "Allowed levels: overall dB(A) and per-band limits, one exceeded limit = FAIL",
+   "FAIL: 20 checks passed, 3 failed, exit code 0 (206 s)"
   ],
   [
    "All toolbox tools through ArcPy's geoprocessing framework (incl. Run Scenario)",
-   "PASS: 1 checks passed, 0 failed, exit code 0 (260 s)"
+   "PASS: 1 checks passed, 0 failed, exit code 0 (117 s)"
   ]
  ],
  "finished": true

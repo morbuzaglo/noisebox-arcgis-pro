@@ -186,6 +186,12 @@ namespace NoiseBoxAddin.Core
             var result = await Geoprocessing.ExecuteToolAsync(tool, Geoprocessing.MakeValueArray(file), null, cps.Progressor.CancellationToken,
                 (name, o) => { });
             foreach (var m in result.Messages) { msgs.Add(m.Text); onMessage?.Invoke(m.Text); }
+            if (!result.IsFailed && msgs.Any(m => m != null && m.Contains("NOISEBOX_MAP_ADD_FAILED")))
+            {
+                int n = await ResultLayers.AddAsync(doc.GetString("name") ?? "Scenario", ResultLayers.ParseRunName(msgs), ResultLayers.ParseCreated(msgs));
+                string add = $"Added {n} result layer(s) to the map (the tool could not).";
+                msgs.Add(add); onMessage?.Invoke(add);
+            }
             return (!result.IsFailed, msgs);
         }
     }

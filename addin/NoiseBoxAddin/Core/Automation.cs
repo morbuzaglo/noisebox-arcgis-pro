@@ -65,6 +65,19 @@ namespace NoiseBoxAddin.Core
                 case "barrier": pane.AddStructure(StructureFactory.Barrier("Barrier", Pts(c["points"]), w, null)); return "barrier added";
                 case "enclosure": pane.AddStructure(StructureFactory.PolygonEnclosure("Enclosure", Pts(c["points"]), w, null)); return "enclosure added";
                 case "set": pane.Doc.Set((string)c["path"], c["value"]?.DeepClone()); pane.Fields.RefreshAll(); return "set " + (string)c["path"];
+                case "gp":
+                {
+                    // run a geoprocessing tool inside Pro (used by the tests, e.g. to start the MCP bridge): {"cmd":"gp","tool":"<toolbox>\<tool>","args":["a","b"]}
+                    var args = c["args"] is JsonArray a ? a.Select(x => (object)(string)x).ToArray() : new object[0];
+                    var t = ArcGIS.Desktop.Core.Geoprocessing.Geoprocessing.ExecuteToolAsync((string)c["tool"], ArcGIS.Desktop.Core.Geoprocessing.Geoprocessing.MakeValueArray(args));
+                    t.ContinueWith(r =>
+                    {
+                        string txt = r.IsFaulted ? "FAULTED " + r.Exception?.GetBaseException().Message
+                            : (r.Result.IsFailed ? "FAILED: " : "OK: ") + string.Join(" | ", r.Result.Messages.Select(m => m.Text).Where(x => !string.IsNullOrWhiteSpace(x)).Take(12));
+                        File.AppendAllText(Path.Combine(Dir, "automation.log"), DateTime.Now.ToString("s") + "  gp result  " + txt + Environment.NewLine);
+                    });
+                    return "geoprocessing started";
+                }
                 case "zoom":
                 {
                     var sr = ArcGIS.Core.Geometry.SpatialReferenceBuilder.CreateSpatialReference(w);

@@ -10,7 +10,7 @@ separate Python 3.10 environment and talks to the toolbox through a temp folder 
 ## Scenarios and the ribbon add-in (new)
 
 A **scenario** (one `.nbscenario.json` file) describes a source (location, height, Lw spectrum, directivity), terrain, a
-receiver area and optionally buildings, noise barriers and a source enclosure. It is validated by 256 numbered errors,
+receiver area and optionally buildings, noise barriers and a source enclosure. It is validated by 260 numbered errors,
 warnings and notes (`noisebox/issues.py`), run through the same MATLAB core, and every run keeps a snapshot.
 **Read `docs/NoiseBox_Manual.pdf`** for installation on another computer and a worked example.
 
