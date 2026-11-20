@@ -12,13 +12,15 @@ separate Python 3.10 environment and talks to the toolbox through a temp folder 
 A **scenario** (one `.nbscenario.json` file) describes a source (location, height, Lw spectrum, directivity), terrain, a
 receiver area and optionally buildings, noise barriers and a source enclosure. It is validated by 260 numbered errors,
 warnings and notes (`noisebox/issues.py`), run through the same MATLAB core, and every run keeps a snapshot.
-**Read `docs/NoiseBox_Manual.pdf`** for installation on another computer and a worked example.
+**Read `docs/NoiseBox_Manual.pdf`** (installation, every setting, a worked example with screenshots from the running software).
+
+New in this version: allowed levels as an overall dB(A) limit **and/or** per octave band (a cell fails if any limit is exceeded); the DTM can be the map's **ground surface**; everything you create with the tools becomes a real layer in Contents (group *NoiseBox inputs*); a MATLAB engine that stays ready between runs (`docs/ENGINE_OPTIONS.md` lists the options, `fresh` = the old one-MATLAB-per-run mode is selectable in `config.json`).
 
 | Part | Status |
 |---|---|
 | `noisebox/scenario*.py`, `noisebox_cli.py`, tool **5. Add-in > Run Scenario** in `NoiseBox.pyt` | built and tested |
 | `matlab/core/nb_enclosure_surfaces.m` (new; `nb_enclosure.m` unchanged) and glue extensions | built and tested |
-| `addin/NoiseBoxAddin` (ribbon tab, dockable pane, map tools; C#, ArcGIS Pro SDK) | **compiled and packaged; static checks pass; never loaded or clicked in Pro** |
+| `addin/NoiseBoxAddin` (ribbon tab, dockable pane, map tools; C#, ArcGIS Pro SDK) | **installed and used in ArcGIS Pro 3.5.3**: ribbon, pane, Preview, Run, results, input layers; map-tool sketching not clicked by a person (see the manual, section 13) |
 | `dist/NoiseBox.esriAddinX` | the built add-in; install by double-click on any computer with ArcGIS Pro 3.5 |
 
 Ribbon icons: `addin/NoiseBoxAddin/Images/<Name>16.png` and `<Name>32.png` (one pair per button, named after the id in

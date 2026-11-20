@@ -77,6 +77,14 @@ namespace NoiseBoxAddin.Core
             return ok;
         }
 
+        /// <summary>Keeps the input objects (source, barriers, area ...) drawn above the result rasters of a run.</summary>
+        public static Task MoveToTopAsync() => QueuedTask.Run(() =>
+        {
+            var map = MapView.Active?.Map;
+            var g = map?.GetLayersAsFlattenedList().OfType<GroupLayer>().FirstOrDefault(x => x.Name == GroupName);
+            if (g != null) map.MoveLayer(g, 0);
+        });
+
         private static CIMColor C(int r, int g, int b, int a = 255) => ColorFactory.Instance.CreateRGBColor(r, g, b, a);
 
         private static string _gdbName = GdbName;

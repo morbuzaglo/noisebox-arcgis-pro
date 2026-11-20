@@ -192,6 +192,7 @@ namespace NoiseBoxAddin.Core
                 string add = $"Added {n} result layer(s) to the map (the tool could not).";
                 msgs.Add(add); onMessage?.Invoke(add);
             }
+            try { await InputLayers.MoveToTopAsync(); } catch (Exception e) { Log.Write("MOVE inputs to top: " + e.Message); }
             return (!result.IsFailed, msgs);
         }
     }

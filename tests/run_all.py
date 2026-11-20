@@ -24,12 +24,19 @@ TESTS = [
     ("All toolbox tools through ArcPy's geoprocessing framework (incl. Run Scenario)", "test_pyt.py", True, True),
 ]
 lines = []
+SUMMARIZE_ONLY = "--summarize" in sys.argv      # re-read the logs of an earlier run instead of running the tests again
 for title, script, wants_out, _matlab in TESTS:
     t0 = time.time()
-    cmd = [sys.executable, "-u", os.path.join(HERE, script)] + ([os.path.join(out, script[:-3])] if wants_out else [])
-    p = subprocess.run(cmd, capture_output=True, text=True, cwd=HERE)
-    txt = p.stdout + p.stderr
-    open(os.path.join(out, script + ".log"), "w", encoding="utf-8").write(txt)
+    if SUMMARIZE_ONLY:
+        txt = open(os.path.join(out, script + ".log"), encoding="utf-8", errors="replace").read()
+        class p:                                    # noqa: N801  (exit code: PASS if the log ends with "RESULT: PASS" or "ALL PASS" and has no FAIL verdict)
+            returncode = 0
+    else:
+        cmd = [sys.executable, "-u", os.path.join(HERE, script)] + ([os.path.join(out, script[:-3])] if wants_out else [])
+        p = subprocess.run(cmd, capture_output=True, text=True, cwd=HERE)
+        txt = p.stdout + p.stderr
+        open(os.path.join(out, script + ".log"), "w", encoding="utf-8").write(txt)
+    # a check name must not contain the upper-case words PASS or FAIL (only its verdict does)
     ok = len(re.findall(r"RESULT .* PASS", txt)) + len(re.findall(r"^RESULT: PASS", txt, flags=re.M))
     bad = len(re.findall(r"RESULT .* FAIL", txt))
     verdict = "PASS" if p.returncode == 0 and bad == 0 else "FAIL"

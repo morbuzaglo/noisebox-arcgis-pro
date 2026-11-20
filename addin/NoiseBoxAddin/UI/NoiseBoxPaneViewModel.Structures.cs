@@ -39,6 +39,15 @@ namespace NoiseBoxAddin.UI
             }
         }
 
+        /// <summary>After the scenario was changed from outside the pane (the test hook): refresh every bound field and the list.</summary>
+        public void RefreshAfterExternalChange()
+        {
+            Fields.RefreshAll();
+            SF.RefreshAll();
+            RebuildStructures(SelectedId);
+            OnDocChanged();
+        }
+
         public void RebuildStructures(string selectId = null)
         {
             var keep = selectId ?? SelectedId;

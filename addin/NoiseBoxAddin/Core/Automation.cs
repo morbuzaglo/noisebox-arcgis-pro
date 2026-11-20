@@ -64,7 +64,7 @@ namespace NoiseBoxAddin.Core
                 case "building": pane.AddStructure(StructureFactory.Building("Building", Pts(c["points"]), w, null)); return "building added";
                 case "barrier": pane.AddStructure(StructureFactory.Barrier("Barrier", Pts(c["points"]), w, null)); return "barrier added";
                 case "enclosure": pane.AddStructure(StructureFactory.PolygonEnclosure("Enclosure", Pts(c["points"]), w, null)); return "enclosure added";
-                case "set": pane.Doc.Set((string)c["path"], c["value"]?.DeepClone()); pane.Fields.RefreshAll(); return "set " + (string)c["path"];
+                case "set": pane.Doc.Set((string)c["path"], c["value"]?.DeepClone()); pane.RefreshAfterExternalChange(); return "set " + (string)c["path"];
                 case "gp":
                 {
                     // run a geoprocessing tool inside Pro (used by the tests, e.g. to start the MCP bridge): {"cmd":"gp","tool":"<toolbox>\<tool>","args":["a","b"]}

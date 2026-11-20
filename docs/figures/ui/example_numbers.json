@@ -1,7 +1,7 @@
 {
  "runs": [
-  "A_baseline_2_LAeq",
-  "B_barrier_5_LAeq"
+  "A_baseline_3_LAeq",
+  "B_barrier_6_LAeq"
  ],
  "A": {
   "min": 38.443668365478516,

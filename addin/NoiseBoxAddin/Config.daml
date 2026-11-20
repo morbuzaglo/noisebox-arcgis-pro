@@ -7,7 +7,7 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
 
-  <AddInInfo id="{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}" version="1.23" desktopVersion="3.5.0">
+  <AddInInfo id="{6B0C3A2E-4D52-4E0B-9B52-0F7B8C1E5A11}" version="1.24" desktopVersion="3.5.0">
     <Name>NoiseBox</Name>
     <Description>Outdoor noise mapping (ISO 9613-2) with a MATLAB core: scenarios, sources, structures, enclosures, receiver grids.</Description>
     <Date>2026-11-19</Date>

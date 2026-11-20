@@ -75,7 +75,7 @@ def main():
     ov = run(base, "lim_overall", limit_dba=L_OV)
     cells = read_cells(ov["created"]["cells"])
     bad_rule = [k for k, r in cells.items() if (r[1] == "FAIL") != (r[-1] > L_OV)]
-    report("overall limit: FAIL exactly where LAeq > its limit", not bad_rule and any(r[1] == "FAIL" for r in cells.values())
+    report("overall limit: a cell fails exactly where LAeq > its limit", not bad_rule and any(r[1] == "FAIL" for r in cells.values())
            and any(r[1] == "PASS" for r in cells.values()), "%d cells, %d fail" % (len(cells), sum(r[1] == "FAIL" for r in cells.values())))
 
     print("=== 3. one band limit only ===")
@@ -86,7 +86,7 @@ def main():
     i500 = BANDS.index(500)
     # columns: 0 id, 1 status, 2 margin, 3 worstHz, 4 worstdB, 5..12 Marg_*, 13..20 LpA_*, 21 LAeq
     wrong = [k for k, r in cells.items() if (r[1] == "FAIL") != (r[13 + i500] > L_B500)]
-    report("band limit 500 Hz: FAIL exactly where LpA_500 > limit", not wrong and any(r[1] == "FAIL" for r in cells.values())
+    report("band limit 500 Hz: a cell fails exactly where LpA_500 > limit", not wrong and any(r[1] == "FAIL" for r in cells.values())
            and any(r[1] == "PASS" for r in cells.values()), "%d cells" % len(cells))
     mg = [abs(r[5 + i500] - (r[13 + i500] - L_B500)) for r in cells.values()]
     report("Marg_500 = LpA_500 - limit", max(mg) < 1e-6, "max |err| %.2e" % max(mg))
@@ -100,8 +100,8 @@ def main():
     over_ok = all(r[-1] <= L_TOP for r in cells.values())
     fails = [r for r in cells.values() if r[1] == "FAIL"]
     report("every cell is under the (high) overall limit", over_ok)
-    report("cells still FAIL because of the 500 Hz band", len(fails) > 0 and all(r[13 + i500] > L_B500 for r in fails),
-           "%d FAIL cells" % len(fails))
+    report("cells still fail because of the 500 Hz band", len(fails) > 0 and all(r[13 + i500] > L_B500 for r in fails),
+           "%d failing cells" % len(fails))
     m_ras = raster(cb["created"]["margin"])
     cid = {k: r for k, r in cells.items()}
     report("Margin raster = largest exceedance over all limits (max 500 Hz margin)",
@@ -111,7 +111,7 @@ def main():
     both = run(base, "lim_both", limit_dba=L_OV - 1.0, limit_bands=comb)
     cells = read_cells(both["created"]["cells"])
     wrong = [k for k, r in cells.items() if (r[1] == "FAIL") != (r[-1] > L_OV - 1.0 or r[13 + i500] > L_B500)]
-    report("FAIL exactly where LAeq > overall OR LpA_500 > band limit", not wrong, "%d cells" % len(cells))
+    report("a cell fails exactly where LAeq > overall OR LpA_500 > band limit", not wrong, "%d cells" % len(cells))
 
     print("=== 6. unweighted (Z) comparison of band limits ===")
     z = run(base, "lim_z", limit_bands=[None, None, None, 70.0, None, None, None, None], limit_band_weighting="Z")
